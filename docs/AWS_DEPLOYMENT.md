@@ -10,6 +10,22 @@ There are two paths:
 
 Both use **RDS PostgreSQL**, **ECR** and **Secrets Manager**.
 
+## Quick path: one command (no local Docker needed)
+
+```bash
+# Prerequisites: AWS CLI v2, authenticated (`aws configure` or `aws sso login`)
+AWS_REGION=ap-south-1 ./deploy/aws/deploy.sh      # ~15-20 min on first run; prints the app URL
+AWS_REGION=ap-south-1 ./deploy/aws/teardown.sh    # deletes everything when you're done
+```
+
+`deploy.sh` provisions a low-cost demo stack: an RDS PostgreSQL 17 `db.t4g.micro` (private, reachable only from the app
+tasks), ECR, a CodeBuild project that builds both images straight from the GitHub repo, an ECS Fargate cluster with one
+API task and one web task, and a single Application Load Balancer that routes `/api/*` and `/docs` to FastAPI and
+everything else to Next.js (same origin, so no CORS). The database URL is generated and kept in Secrets Manager. Re-run
+it to redeploy the latest `main`. Expect roughly **$45-50/month** while it's running.
+
+The sections below describe the same architecture step by step, plus a production-grade variant.
+
 > Replace `us-east-1`, `123456789012` and the passwords with your own values. Commands assume AWS CLI v2 and Docker.
 
 ---
