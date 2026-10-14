@@ -1,0 +1,41 @@
+# Full stack locally:  docker compose up --build   ->  http://localhost:3000
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: caprae
+      POSTGRES_PASSWORD: caprae
+      POSTGRES_DB: caprae
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caprae -d caprae"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./fastapi-caprae
+    environment:
+      DATABASE_URL: postgresql+psycopg://caprae:caprae@db:5432/caprae
+      CORS_ORIGINS: http://localhost:3000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SEED_SAMPLE_DATA: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build: ./nextjs-caprae
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

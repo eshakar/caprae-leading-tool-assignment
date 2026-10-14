@@ -1,0 +1,24 @@
+# Confidential interview material - never publish
+*AI Interview Handbook*.md
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Env & secrets (examples are committed)
+.env
+.env.*
+!.env.example
+
+# OS / logs
+.DS_Store
+Thumbs.db
+*.log
