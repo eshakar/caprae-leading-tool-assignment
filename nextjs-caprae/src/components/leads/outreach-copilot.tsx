@@ -65,7 +65,7 @@ const noopSubscribe = () => () => {};
 
 export function OutreachCopilot({ lead, onContacted }: { lead: Lead; onContacted: () => void }) {
   const { data: history, mutate } = useSWR<OutreachDraft[]>(`/leads/${lead.id}/outreach`);
-  const { data: ai } = useSWR<{ enabled: boolean; model: string | null }>("/ai/status");
+  const { data: ai } = useSWR<{ enabled: boolean; provider: string | null; model: string | null }>("/ai/status");
   const storedSender = useSyncExternalStore(noopSubscribe, senderStore.get, () => "");
   const [goal, setGoal] = useState("acquisition");
   const [tone, setTone] = useState("warm");
@@ -106,7 +106,7 @@ export function OutreachCopilot({ lead, onContacted }: { lead: Lead; onContacted
         </CardTitle>
         <CardDescription>
           Writes the first touch from facts we found about this company, never made-up claims.{" "}
-          {ai && !ai.enabled && "Running in template mode (add ANTHROPIC_API_KEY to the API for Claude)."}
+          {ai && !ai.enabled && "Running in template mode (add ANTHROPIC_API_KEY, GEMINI_API_KEY or XAI_API_KEY to the API to use an LLM)."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

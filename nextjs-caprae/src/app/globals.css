@@ -152,6 +152,12 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Dotted grid that fades out toward the edges, used behind the dashboard hero. */
+  .hero-grid {
+    background-image: radial-gradient(color-mix(in oklch, var(--foreground) 14%, transparent) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 80% 70% at 30% 40%, black 30%, transparent 75%);
+  }
 }
 
 /* Printed one-pagers are always light, regardless of the on-screen theme. */

@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     # Claude (AI Outreach Copilot). When unset the copilot falls back to deterministic templates.
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-5-5"
+    # Google Gemini. Used when no Anthropic key is set.
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash"
+    # Tried in order when the primary model is overloaded or rate limited.
+    gemini_fallback_models: str = "gemini-3.8-flash,gemini-3.1-flash-lite"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    # xAI Grok (OpenAI-compatible API). Used when neither Anthropic nor Gemini is set.
+    xai_api_key: str | None = None
+    xai_model: str = "grok-4.7"
+    xai_base_url: str = "https://api.x.ai/v1"
 
     # Enrichment crawler
     crawler_user_agent: str = "SaaSquatchProBot/1.0 (+https://www.saasquatchleads.com; lead-enrichment)"
@@ -51,8 +61,22 @@ class Settings(BaseSettings):
         return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def ai_provider(self) -> str | None:
+        if self.anthropic_api_key:
+            return "anthropic"
+        if self.gemini_api_key:
+            return "gemini"
+        if self.xai_api_key:
+            return "xai"
+        return None
+
+    @property
     def ai_enabled(self) -> bool:
-        return bool(self.anthropic_api_key)
+        return self.ai_provider is not None
+
+    @property
+    def ai_model(self) -> str | None:
+        return {"anthropic": self.anthropic_model, "gemini": self.gemini_model, "xai": self.xai_model}.get(self.ai_provider or "")
 
 
 @lru_cache

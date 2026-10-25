@@ -254,3 +254,50 @@ export const icpApi = {
 /** SWR key matcher for everything derived from leads (lists, stats, action center, timelines). */
 export const isLeadDataKey = (key: unknown): boolean =>
   typeof key === "string" && (key.startsWith("/leads") || key === "/stats");
+
+export interface LeadFilters {
+  tiers: Tier[];
+  stages: Stage[];
+  industries: string[];
+  states: string[];
+  min_score: number;
+  has_email: boolean;
+  follow_up_due: boolean;
+  keywords: string;
+  sort: string;
+}
+
+export interface AISearchResult {
+  filters: LeadFilters;
+  explanation: string;
+  generator: string;
+}
+
+export interface PipelineBrief {
+  headline: string;
+  insights: { title: string; detail: string; lead_id: number }[];
+  focus_today: string;
+  generator: string;
+}
+
+export const aiApi = {
+  search: (query: string) => api<AISearchResult>("/ai/search", { method: "POST", body: JSON.stringify({ query }) }),
+  brief: () => api<PipelineBrief>("/ai/brief", { method: "POST" }),
+};
+
+/** Leads-page URL for a set of AI filters; the leads view reads these params as its initial state. */
+export function leadsUrlForFilters(f: LeadFilters, query: string, explanation: string): string {
+  return `/leads${qs({
+    tier: f.tiers,
+    stage: f.stages,
+    industry: f.industries,
+    state: f.states,
+    min_score: f.min_score || undefined,
+    has_email: f.has_email || undefined,
+    follow_up_due: f.follow_up_due || undefined,
+    q: f.keywords || undefined,
+    sort: f.sort !== "-score" ? f.sort : undefined,
+    ai: query,
+    why: explanation,
+  })}`;
+}

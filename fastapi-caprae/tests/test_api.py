@@ -160,3 +160,19 @@ def test_outreach_is_logged(client):
     lead_id = client.get("/api/leads", params={"page_size": 1, "stage": "new"}).json()["items"][0]["id"]
     client.post(f"/api/leads/{lead_id}/outreach", json={"goal": "sales", "tone": "direct"})
     assert client.get(f"/api/leads/{lead_id}/activities").json()[0]["kind"] == "outreach"
+
+
+def test_ai_search_without_provider_uses_keyword_parser(client):
+    r = client.post("/api/ai/search", json={"query": "hot HVAC leads in Texas we haven't contacted"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["generator"] == "rules"
+    assert body["filters"]["tiers"] == ["hot"] and body["filters"]["stages"] == ["new"]
+    assert "HVAC" in body["filters"]["industries"] and body["explanation"]
+    assert client.post("/api/ai/search", json={"query": "x"}).status_code == 422
+
+
+def test_pipeline_brief_without_provider(client):
+    body = client.post("/api/ai/brief").json()
+    assert body["generator"] == "rules" and body["headline"] and body["focus_today"]
+    assert 1 <= len(body["insights"]) <= 4

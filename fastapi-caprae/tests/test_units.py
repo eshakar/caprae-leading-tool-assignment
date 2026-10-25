@@ -1,13 +1,17 @@
 import asyncio
+import json
 from types import SimpleNamespace
 
 import httpx
 
+from app.core.config import Settings
 from app.models.icp import DEFAULT_WEIGHTS
+from app.services import llm
 from app.services.crawler import Crawler, EnrichmentResult
 from app.services.email_validation import verify_email
 from app.services.normalize import normalize_company_name, normalize_domain, normalize_phone, normalize_state, parse_int
-from app.services.outreach import template_outreach
+from app.services import outreach as outreach_mod
+from app.services.outreach import generate_outreach, template_outreach
 from app.services.scoring import normalized_weights, score_lead
 
 
@@ -161,3 +165,134 @@ def test_template_outreach_is_grounded():
     out = template_outreach(lead, "acquisition", "warm", None)
     assert "Hi Dale," in out.email_body and "Lone Star HVAC" in out.email_body
     assert len(out.linkedin_note) <= 300 and out.generator == "template"
+
+
+def _hvac_lead():
+    return SimpleNamespace(company_name="Lone Star HVAC", website="https://x.com", industry="HVAC", city="Austin",
+                           state="TX", description=None, owner_name="Dale Whitaker", owner_title="Owner",
+                           employee_count=40, founded_year=1986, signals={}, tech_stack=[], emails=[])
+
+
+def test_ai_provider_selection():
+    assert Settings(anthropic_api_key=None, gemini_api_key=None, xai_api_key=None).ai_provider is None
+    xai = Settings(anthropic_api_key=None, gemini_api_key=None, xai_api_key="xai-test", xai_model="grok-test")
+    assert (xai.ai_provider, xai.ai_model, xai.ai_enabled) == ("xai", "grok-test", True)
+    assert Settings(anthropic_api_key="sk-ant-test", xai_api_key="xai-test").ai_provider == "anthropic"
+    assert Settings(anthropic_api_key=None, gemini_api_key="g-test", xai_api_key="xai-test").ai_provider == "gemini"
+
+
+def _with_xai(monkeypatch, handler):
+    settings = Settings(anthropic_api_key=None, gemini_api_key=None, xai_api_key="xai-test", xai_model="grok-test")
+    monkeypatch.setattr(llm, "get_settings", lambda: settings)
+    monkeypatch.setattr(outreach_mod, "get_settings", lambda: settings)
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(llm.httpx, "AsyncClient",
+                        lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+
+
+def test_xai_outreach_parses_structured_output(monkeypatch):
+    package = {"subject": "Lone Star HVAC", "email_body": "Hi Dale,", "linkedin_note": "Hi", "call_opener": "Hi",
+               "follow_up": "Hi", "personalization_points": ["Founded 1986"]}
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers["authorization"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"model": "grok-test", "choices": [
+            {"finish_reason": "stop", "message": {"role": "assistant", "content": json.dumps(package)}}]})
+
+    _with_xai(monkeypatch, handler)
+    out = asyncio.run(generate_outreach(_hvac_lead(), "acquisition", "warm", None))
+    assert out.generator == "grok-test" and out.subject == "Lone Star HVAC"
+    assert seen["auth"] == "Bearer xai-test"
+    assert seen["body"]["response_format"]["type"] == "json_schema"
+
+
+def test_xai_error_falls_back_to_template(monkeypatch):
+    _with_xai(monkeypatch, lambda request: httpx.Response(403, json={"code": "permission-denied"}))
+    out = asyncio.run(generate_outreach(_hvac_lead(), "acquisition", "warm", None))
+    assert out.generator == "template"
+
+
+_PACKAGE = {"subject": "Lone Star HVAC", "email_body": "Hi Dale,", "linkedin_note": "Hi", "call_opener": "Hi",
+            "follow_up": "Hi", "personalization_points": ["Founded 1986"]}
+
+
+def _with_gemini(monkeypatch, handler):
+    settings = Settings(anthropic_api_key=None, gemini_api_key="g-test", gemini_model="gemini-test",
+                        gemini_fallback_models="gemini-backup, gemini-test")
+    monkeypatch.setattr(llm, "get_settings", lambda: settings)
+    monkeypatch.setattr(outreach_mod, "get_settings", lambda: settings)
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(llm.httpx, "AsyncClient",
+                        lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+
+
+def test_gemini_outreach_parses_structured_output(monkeypatch):
+    seen = {}
+
+    def handler(request):
+        seen["key"] = request.headers["x-goog-api-key"]
+        seen["path"] = request.url.path
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"modelVersion": "gemini-test-001", "candidates": [
+            {"finishReason": "STOP", "content": {"role": "model", "parts": [{"text": json.dumps(_PACKAGE)}]}}]})
+
+    _with_gemini(monkeypatch, handler)
+    out = asyncio.run(generate_outreach(_hvac_lead(), "acquisition", "warm", None))
+    assert out.generator == "gemini-test-001" and out.subject == "Lone Star HVAC"
+    assert seen["key"] == "g-test" and seen["path"].endswith("/models/gemini-test:generateContent")
+    assert seen["body"]["generationConfig"]["responseMimeType"] == "application/json"
+
+
+def test_gemini_tries_fallback_models_then_template(monkeypatch):
+    tried = []
+
+    def handler(request):
+        tried.append(request.url.path.rsplit("/", 1)[-1])
+        return httpx.Response(503, json={"error": {"status": "UNAVAILABLE"}})
+
+    _with_gemini(monkeypatch, handler)
+    out = asyncio.run(generate_outreach(_hvac_lead(), "acquisition", "warm", None))
+    assert out.generator == "template"
+    assert tried == ["gemini-test:generateContent", "gemini-backup:generateContent"]
+
+
+INDUSTRIES = ["HVAC", "Plumbing", "IT Services", "Healthcare Services"]
+STATES = ["TX", "FL", "OR", "IN"]
+
+
+def test_rule_based_search_parses_common_phrasing():
+    from app.services.ai_insights import rule_based_search
+
+    f = rule_based_search("hot HVAC leads in Texas we haven't contacted, with email", INDUSTRIES, STATES)
+    assert f["tiers"] == ["hot"] and f["industries"] == ["HVAC"] and f["states"] == ["TX"]
+    assert f["stages"] == ["new"] and f["has_email"] is True
+    # Lowercase "in"/"or" must never be read as Indiana/Oregon.
+    g = rule_based_search("plumbing in florida or IT services scoring above 70", INDUSTRIES, STATES)
+    assert sorted(g["industries"]) == ["IT Services", "Plumbing"] and g["states"] == ["FL"] and g["min_score"] == 70
+
+
+def test_ai_search_filters_are_sanitised():
+    from app.services.ai_insights import _clean_filters
+
+    raw = {"tiers": ["hot", "lukewarm"], "stages": ["new"], "industries": ["hvac", "Bakeries"], "states": ["tx", "ZZ"],
+           "min_score": 140, "has_email": True, "follow_up_due": False, "keywords": "family", "sort": "DROP TABLE"}
+    f = _clean_filters(raw, INDUSTRIES, STATES)
+    assert f["tiers"] == ["hot"] and f["industries"] == ["HVAC"] and f["states"] == ["TX"]
+    assert f["min_score"] == 100 and f["sort"] == "-score"
+
+
+def test_rule_based_brief_is_grounded():
+    from app.services.ai_insights import rule_based_brief
+
+    snap = {"totals": {"total": 10, "enriched": 10, "with_email": 8, "avg_score": 61.4},
+            "by_tier": {"hot": 3, "warm": 4, "cold": 3}, "by_stage": {"new": 7},
+            "by_industry": [{"industry": "HVAC", "count": 4, "avg_score": 80.0}],
+            "follow_ups_due": [{"id": 7, "company_name": "Acme Air", "score": 82, "stage": "contacted", "days_overdue": 2}],
+            "hot_untouched": [{"id": 3, "company_name": "Lone Star HVAC", "industry": "HVAC", "state": "TX", "score": 91}],
+            "top_open_leads": []}
+    b = rule_based_brief(snap)
+    assert b["generator"] == "rules" and b["insights"][0]["lead_id"] == 7
+    assert "3 hot leads out of 10" in b["headline"]
+    assert any("2 leads have no email" in i["title"] for i in b["insights"])

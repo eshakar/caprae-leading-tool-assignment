@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowRight, Flame, MailCheck, Radar, Target, Upload, UserPlus } from "lucide-react";
+import { ArrowRight, Flame, MailCheck, Radar, Target } from "lucide-react";
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 
 import { ActionCenter } from "@/components/dashboard/action-center";
+import { Hero } from "@/components/dashboard/hero";
+import { PipelineBrief } from "@/components/dashboard/pipeline-brief";
 import { GlowCard } from "@/components/glow-card";
 import { ScoreRing, StageBadge } from "@/components/leads/badges";
-import Aurora from "@/components/reactbits/Aurora";
-import BlurText from "@/components/reactbits/BlurText";
 import CountUp from "@/components/reactbits/CountUp";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -47,39 +47,7 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <section className="relative overflow-hidden rounded-2xl border bg-card">
-        <div className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-90">
-          <Aurora colorStops={["#0d9488", "#f59e0b", "#14b8a6"]} amplitude={0.9} blend={0.6} speed={0.6} />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-card/20 to-card/90" />
-        <div className="relative flex flex-col gap-4 p-6 md:p-10">
-          <span className="w-fit rounded-full border bg-background/70 px-3 py-1 text-xs font-medium backdrop-blur">
-            Built for search funds, PE operators & B2B sales teams
-          </span>
-          <BlurText
-            text="Spend time on the leads that will actually close."
-            className="max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl"
-            delay={60}
-            animateBy="words"
-          />
-          <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-            Every lead is enriched from its website, has its emails verified, and gets an explainable Deal Signal Score.
-            Then the AI Copilot drafts the first touch for you.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href="/leads?add=1">
-                <UserPlus /> Add a company
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="bg-background/70">
-              <Link href="/leads?import=1">
-                <Upload /> Import CSV
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <Hero stats={data} />
 
       {error && (
         <Alert variant="destructive">
@@ -106,6 +74,8 @@ export function Dashboard() {
           </>
         )}
       </section>
+
+      <PipelineBrief />
 
       <ActionCenter />
 

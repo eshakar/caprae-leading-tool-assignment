@@ -8,7 +8,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from app.api.routes import icp, leads, outreach, stats
+from app.api.routes import ai, icp, leads, outreach, stats
 from app.core.config import get_settings
 from app.db.seed import seed_if_empty
 from app.db.session import SessionLocal
@@ -53,7 +53,7 @@ async def db_unavailable(_: Request, exc: OperationalError) -> JSONResponse:
     return JSONResponse(status_code=503, content={"detail": "Database temporarily unavailable"})
 
 
-for router in (stats.router, leads.router, icp.router, outreach.router):
+for router in (stats.router, leads.router, icp.router, outreach.router, ai.router):
     app.include_router(router, prefix="/api")
 
 

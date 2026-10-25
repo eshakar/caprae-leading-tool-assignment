@@ -156,9 +156,13 @@ fi
 SECRET_ARN=$(q secretsmanager describe-secret --secret-id "$SECRET_NAME" --query ARN --output text)
 log "Database $DB_HOST · connection string stored in Secrets Manager ($SECRET_NAME)"
 
-# Optional: Claude key, if you created it yourself with
+# Optional: LLM key for the Outreach Copilot, if you created one yourself with
 #   aws secretsmanager create-secret --name caprae/ANTHROPIC_API_KEY --secret-string sk-ant-...
+#   aws secretsmanager create-secret --name caprae/GEMINI_API_KEY --secret-string <key>
+#   aws secretsmanager create-secret --name caprae/XAI_API_KEY --secret-string xai-...
 AI_SECRET_ARN=$(q secretsmanager describe-secret --secret-id "$APP/ANTHROPIC_API_KEY" --query ARN --output text 2>/dev/null || true)
+GEMINI_SECRET_ARN=$(q secretsmanager describe-secret --secret-id "$APP/GEMINI_API_KEY" --query ARN --output text 2>/dev/null || true)
+XAI_SECRET_ARN=$(q secretsmanager describe-secret --secret-id "$APP/XAI_API_KEY" --query ARN --output text 2>/dev/null || true)
 
 # ---------------------------------------------------------------- IAM for ECS tasks
 EXEC_ROLE="$APP-ecs-exec-role"
@@ -219,6 +223,8 @@ for g in api web; do aws logs put-retention-policy --log-group-name "/ecs/$APP-$
 
 AI_SECRET_JSON=""
 if exists "$AI_SECRET_ARN"; then AI_SECRET_JSON=",{\"name\":\"ANTHROPIC_API_KEY\",\"valueFrom\":\"$AI_SECRET_ARN\"}"; fi
+if exists "$GEMINI_SECRET_ARN"; then AI_SECRET_JSON="$AI_SECRET_JSON,{\"name\":\"GEMINI_API_KEY\",\"valueFrom\":\"$GEMINI_SECRET_ARN\"}"; fi
+if exists "$XAI_SECRET_ARN"; then AI_SECRET_JSON="$AI_SECRET_JSON,{\"name\":\"XAI_API_KEY\",\"valueFrom\":\"$XAI_SECRET_ARN\"}"; fi
 
 cat > "$WORK/api-task.json" <<JSON
 {

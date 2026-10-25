@@ -15,7 +15,7 @@ router = APIRouter(tags=["outreach"])
 @router.get("/ai/status")
 def ai_status() -> dict[str, object]:
     s = get_settings()
-    return {"enabled": s.ai_enabled, "model": s.anthropic_model if s.ai_enabled else None}
+    return {"enabled": s.ai_enabled, "provider": s.ai_provider, "model": s.ai_model}
 
 
 @router.post("/leads/{lead_id}/outreach", response_model=OutreachOut, status_code=201)

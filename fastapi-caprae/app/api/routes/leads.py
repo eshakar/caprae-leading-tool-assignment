@@ -84,10 +84,11 @@ def apply_filters(
     stage: list[str] | None, min_score: int | None, max_score: int | None, has_email: bool | None,
     enrichment_status: str | None, follow_up_due: bool | None = None,
 ) -> Select:
-    if search:
-        like = f"%{search.strip()}%"
+    # Every word must appear somewhere, so "family owned" also matches "Family-owned" in a description.
+    for word in (search or "").split()[:8]:
+        like = f"%{word}%"
         q = q.where(or_(Lead.company_name.ilike(like), Lead.domain.ilike(like), Lead.owner_name.ilike(like),
-                        Lead.city.ilike(like), Lead.industry.ilike(like)))
+                        Lead.city.ilike(like), Lead.industry.ilike(like), Lead.description.ilike(like)))
     if industry:
         q = q.where(Lead.industry.in_(industry))
     if state:

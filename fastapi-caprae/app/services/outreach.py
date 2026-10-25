@@ -1,6 +1,6 @@
 """AI Outreach Copilot: grounded, personalized first-touch messaging for a lead.
 
-Uses Claude with a strict JSON schema so the UI always gets the same shape. Every claim must come
+Uses Claude (or Google Gemini / xAI Grok) with a strict JSON schema so the UI always gets the same shape. Every claim must come
 from the lead's scraped facts (no hallucinated "I loved your recent award" lines). When no API key is
 configured - or the API is unavailable - a deterministic template generator keeps the feature usable.
 """
@@ -10,9 +10,8 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import Any
 
-import anthropic
-
 from app.core.config import get_settings
+from app.services.llm import LLMUnavailable, generate_json
 from app.services.scoring import years_in_business
 
 log = logging.getLogger(__name__)
@@ -96,48 +95,26 @@ def lead_facts(lead: Any) -> dict[str, Any]:
 async def generate_outreach(lead: Any, goal: str, tone: str, sender_context: str | None) -> OutreachResult:
     goal = goal if goal in GOALS else "acquisition"
     tone = tone if tone in TONES else "warm"
-    settings = get_settings()
-    if settings.ai_enabled:
+    if get_settings().ai_enabled:
         try:
-            return await _generate_with_claude(lead, goal, tone, sender_context)
-        except anthropic.APIConnectionError:
-            log.warning("Claude unreachable; using template outreach")
-        except anthropic.RateLimitError:
-            log.warning("Claude rate limited; using template outreach")
-        except anthropic.APIStatusError as exc:
-            log.warning("Claude API error %s; using template outreach", exc.status_code)
-        except (ValueError, KeyError, json.JSONDecodeError) as exc:
-            log.warning("Unusable Claude response (%s); using template outreach", exc)
+            data, model = await generate_json(SYSTEM_PROMPT, _user_prompt(lead, goal, tone, sender_context),
+                                              OUTPUT_SCHEMA, name="outreach_package")
+            return _result_from_json(data, model)
+        except (LLMUnavailable, KeyError, AttributeError, TypeError) as exc:
+            log.warning("AI outreach unavailable (%s); using template outreach", exc)
     return template_outreach(lead, goal, tone, sender_context)
 
 
-async def _generate_with_claude(lead: Any, goal: str, tone: str, sender_context: str | None) -> OutreachResult:
-    settings = get_settings()
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=60.0, max_retries=2)
-    user_prompt = (
+def _user_prompt(lead: Any, goal: str, tone: str, sender_context: str | None) -> str:
+    return (
         f"GOAL: You are {GOALS[goal]}.\nTONE: {tone}.\n"
         f"SENDER CONTEXT: {sender_context or 'Not provided - keep the sender generic.'}\n\n"
         f"LEAD FACTS (JSON):\n{json.dumps(lead_facts(lead), indent=2)}\n\n"
         "Write the outreach package."
     )
-    response = await client.beta.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=4000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA}},
-        # Server-side fallback: if a safety classifier declines, the API re-runs on a recommended model.
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-    )
-    if response.stop_reason == "refusal":
-        raise ValueError("Model declined the request")
-    if response.stop_reason == "max_tokens":
-        raise ValueError("Response truncated")
-    text = next((b.text for b in response.content if b.type == "text"), None)
-    if not text:
-        raise ValueError("No text block in response")
-    data = json.loads(text)
+
+
+def _result_from_json(data: dict[str, Any], generator: str) -> OutreachResult:
     return OutreachResult(
         subject=data["subject"].strip(),
         email_body=data["email_body"].strip(),
@@ -145,7 +122,7 @@ async def _generate_with_claude(lead: Any, goal: str, tone: str, sender_context:
         call_opener=data["call_opener"].strip(),
         follow_up=data["follow_up"].strip(),
         personalization_points=[str(p) for p in data.get("personalization_points", [])][:8],
-        generator=response.model,
+        generator=generator,
     )
 
 

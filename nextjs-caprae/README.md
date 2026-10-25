@@ -19,16 +19,20 @@ image works in every environment.
 ## Pages
 | Route | What it does |
 |---|---|
-| `/` | KPIs, Today's actions (follow-ups due, upcoming, hot & untouched), score distribution, pipeline funnel, priority queue, industry breakdown |
+| `/` | Interactive hero (lead-constellation background + Ask AI search), AI Pipeline Brief, KPIs, Today's actions (follow-ups due, upcoming, hot & untouched), score distribution, pipeline funnel, priority queue, industry breakdown |
 | `/leads` | Search, tier chips, filters, sorting, bulk enrich/stage/export/delete, add & CSV import dialogs |
 | `/leads/[id]` | Lead workspace: follow-up scheduler, AI Outreach Copilot, explainable score, contacts with verification, signals, tech stack, notes, activity timeline |
 | `/leads/[id]/memo` | Printable target one-pager (Save as PDF) |
 | `/pipeline` | Drag-and-drop Kanban with optimistic updates |
 | `/settings` | Scoring profile: acquisition vs sales mode, target market, weight sliders (rescores everything on save) |
 
+## Global
+- **⌘K / Ctrl K** (or `/`) opens the command palette: live lead search, navigation, quick filters, actions and Ask AI.
+- Leads-page filters can be set from the URL (`?tier=hot&state=TX&state=FL…`), which is how Ask AI hands off results.
+
 ## UI stack
 - **shadcn/ui** (Radix, "nova" preset) for every primitive: sidebar, table, dialog, sheet, select, tabs, charts…
-- **React Bits** in `src/components/reactbits`: Aurora, BlurText, CountUp, SpotlightCard, ShinyText, GradientText
+- **React Bits** in `src/components/reactbits`: Aurora, BlurText, CountUp, SpotlightCard, ShinyText, GradientText, plus a custom canvas `LeadConstellation`
 - SWR for data fetching and revalidation, Sonner toasts, next-themes for light/dark, Recharts via shadcn charts
 
 ## Checks

@@ -20,6 +20,8 @@ services:
       DATABASE_URL: postgresql+psycopg://caprae:caprae@db:5432/caprae
       CORS_ORIGINS: http://localhost:3000
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
       SEED_SAMPLE_DATA: "true"
     depends_on:
       db:

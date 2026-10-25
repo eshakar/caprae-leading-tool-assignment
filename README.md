@@ -3,16 +3,19 @@
 An enhancement to Caprae Capital's [SaaSquatch](https://www.saasquatchleads.com/) lead-generation tool, built for the
 Caprae Full Stack Developer pre-screening challenge.
 
+> **New here?** Read [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for what this project is for and exactly
+> how AI is used (and where it deliberately isn't).
+
 | | |
 |---|---|
-| **Backend** | FastAPI · SQLAlchemy 2 · PostgreSQL 17 · Alembic · httpx · BeautifulSoup · dnspython · Anthropic Claude |
+| **Backend** | FastAPI · SQLAlchemy 2 · PostgreSQL 17 · Alembic · httpx · BeautifulSoup · dnspython · provider-agnostic LLM layer (Claude · Gemini · Grok) |
 | **Frontend** | Next.js 16 (App Router, Cache Components) · React 19 · Tailwind CSS v4 · shadcn/ui · React Bits · SWR · Recharts |
 | **Infra** | Docker (multi-stage) · Docker Compose · GitHub Actions CI · AWS (RDS + ECS Fargate / App Runner + ECR + Secrets Manager) |
 
 ```
 fastapi-caprae/   REST API: enrichment crawler, email verification, Deal Signal scoring, AI outreach, CSV import/export
 nextjs-caprae/    Web app: dashboard, lead table, lead workspace, pipeline board, scoring-profile editor
-docs/             AWS deployment guide
+docs/             Project overview (purpose + how AI helps) and AWS deployment guide
 ```
 
 ---
@@ -48,11 +51,13 @@ to investors, and an SDR manager has to justify territory. Explainability is wha
 
 ### ⭐ Feature 2: AI Outreach Copilot (grounded, not generic)
 One click produces a **subject + email, a LinkedIn note (≤300 chars), a cold-call opener and a follow-up**, written
-by Claude from *only* the facts we scraped. The JSON schema is enforced, and the prompt forbids invented awards,
+by an LLM from *only* the facts we scraped. The JSON schema is enforced, and the prompt forbids invented awards,
 news or numbers. You choose the goal (acquisition / sales / partnership) and tone, and it remembers who you are.
 "Open in mail & mark contacted" moves the lead along the pipeline. Draft history is kept per lead.
 
-- Uses `claude-opus-5-5` with structured outputs and server-side refusal fallback.
+- **Provider-agnostic.** One `llm.generate_json()` layer speaks to Claude (`claude-opus-5-5`, structured outputs +
+  server-side refusal fallback), Google Gemini (JSON-schema output, automatic fallback across models when one is
+  overloaded) or xAI Grok. Set whichever key you have; the features don't change.
 - **Degrades gracefully.** Without an API key, or if the API is down or rate-limited, a deterministic template
   engine produces a usable, personalised draft, so the feature never breaks a demo or a workflow.
 - Acquisition copy is deliberately founder-respectful: it talks about legacy, employees and continuity rather than
@@ -76,6 +81,24 @@ owner, stage, next follow-up), **"Why it fits"** and **"Risks & gaps to diligenc
 explainable score), detected signals, tech stack, contact routes and notes. "Print / Save as PDF" produces a light,
 one-page document whatever the on-screen theme. A searcher can drop it straight into an investor update or IC
 pre-read.
+
+### ⭐ Feature 5: AI command center (Ask AI, ⌘K palette, Pipeline Brief)
+The fastest way to use a lead tool is to *say what you want*.
+- **Ask AI search.** Type "best heating and cooling companies in Texas or Florida we haven't reached out to" in the
+  dashboard hero or the command palette. The LLM maps it onto the real filter vocabulary (HVAC, TX + FL, stage New,
+  tier hot), the server **validates every value against the actual facets** before returning it, and the leads page
+  opens pre-filtered with a banner explaining what was applied. Without a key, a keyword parser handles the common
+  phrasings.
+- **⌘K / Ctrl K command palette** (or `/`): live lead search with score rings, page navigation, quick filters
+  ("Hot leads nobody has contacted", "Follow-ups due"), add / import / export / theme actions, and "Ask AI" on
+  whatever you typed.
+- **AI Pipeline Brief.** One click on the dashboard produces a grounded morning brief: a headline, up to four
+  insights that link to the exact lead they're about, and a single "focus today". The model sees only a JSON
+  snapshot of your stats, follow-ups and top leads; lead ids are checked server-side so links can't point anywhere
+  invented. A rule-based brief takes over if no provider is reachable.
+- **Interactive hero.** The dashboard hero layers the Aurora glow with a dotted grid and a canvas "lead
+  constellation": every dot is a company, amber dots pulse as hot leads, and the cursor links to nearby nodes and
+  nudges them aside. It pauses off-screen and respects `prefers-reduced-motion`.
 
 ### The foundation those features need
 - **Live website enrichment.** A polite async crawler reads the homepage, then discovers contact, about, team and
@@ -175,7 +198,7 @@ and bulk jobs run in the background, which suits long-lived containers far bette
 | Web | **ECS Fargate** service (or App Runner) from the `nextjs-caprae` standalone image |
 | Routing | **Application Load Balancer** (public → web; API reachable only from the web service) |
 | Images | **Amazon ECR** |
-| Secrets | **AWS Secrets Manager** → `DATABASE_URL`, `ANTHROPIC_API_KEY` injected as env vars |
+| Secrets | **AWS Secrets Manager** → `DATABASE_URL`, `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `XAI_API_KEY` injected as env vars |
 | Logs/metrics | **CloudWatch Logs** · health checks on `/api/health` (verifies the DB too) and `/` |
 | CI | **GitHub Actions**: Postgres-backed pytest + migration round-trip, typecheck, lint, production build |
 
@@ -189,7 +212,7 @@ Step-by-step instructions: **[docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md)**.
 ```bash
 docker compose up --build
 # Web  http://localhost:3000   ·   API docs  http://localhost:8000/docs
-# Optional: ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+# Optional AI: ANTHROPIC_API_KEY=... (or GEMINI_API_KEY / XAI_API_KEY) docker compose up --build
 ```
 
 ### Option B: native
@@ -200,7 +223,7 @@ Prerequisites: Python 3.12+, Node 20.9+, PostgreSQL 15+.
 cd fastapi-caprae
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env                                   # set DATABASE_URL (and ANTHROPIC_API_KEY if you have one)
+cp .env.example .env                                   # set DATABASE_URL (and an AI key if you have one)
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000              # seeds 30 fictional demo leads on first start
 
@@ -230,7 +253,7 @@ Interactive docs at `/docs`. Main endpoints (all under `/api`):
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/leads` | Search, filter (tier, stage, industry, state, min score, has email), sort, paginate |
+| GET | `/leads` | Word-by-word search (incl. descriptions), filter (tier, stage, industry, state, min score, has email, follow-up due), sort, paginate |
 | POST | `/leads` | Create from a website or name; dedupes; optional instant enrichment |
 | GET/PATCH/DELETE | `/leads/{id}` | Lead workspace; PATCH rescores automatically |
 | POST | `/leads/{id}/enrich` | Crawl + verify + rescore one lead |
@@ -242,7 +265,9 @@ Interactive docs at `/docs`. Main endpoints (all under `/api`):
 | POST/GET | `/leads/{id}/outreach` | AI Outreach Copilot drafts + history |
 | GET | `/leads/actions/today` | Action Center: overdue follow-ups, this week's follow-ups, hot & untouched leads |
 | GET | `/leads/{id}/activities` | Activity timeline |
-| GET | `/stats` · `/health` · `/ai/status` | Dashboard metrics, health check, Copilot mode |
+| POST | `/ai/search` | Plain-English request → validated lead filters + explanation |
+| POST | `/ai/brief` | Grounded AI pipeline brief (insights linked to leads, focus for today) |
+| GET | `/stats` · `/health` · `/ai/status` | Dashboard metrics, health check, AI provider + model |
 
 ---
 

@@ -5,7 +5,9 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://caprae:caprae@localhost:5432/caprae_test"
 )
 os.environ["SEED_SAMPLE_DATA"] = "true"
-os.environ.pop("ANTHROPIC_API_KEY", None)
+# Empty values override any keys in a local .env, so tests never call a real AI provider.
+for _key in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY"):
+    os.environ[_key] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

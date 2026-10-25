@@ -64,6 +64,8 @@ Console: **RDS → Create database → PostgreSQL 17 → Templates: Free tier / 
 aws secretsmanager create-secret --name caprae/DATABASE_URL \
   --secret-string 'postgresql+psycopg://caprae:<PASSWORD>@<RDS-ENDPOINT>:5432/caprae'
 aws secretsmanager create-secret --name caprae/ANTHROPIC_API_KEY --secret-string 'sk-ant-...'   # optional
+aws secretsmanager create-secret --name caprae/GEMINI_API_KEY --secret-string '...'               # optional alternative (Gemini)
+aws secretsmanager create-secret --name caprae/XAI_API_KEY --secret-string 'xai-...'             # optional alternative (Grok)
 ```
 
 ---
@@ -187,6 +189,10 @@ health check only passes once the schema is current.
 | API | `DATABASE_URL` | `postgresql+psycopg://user:pw@host:5432/caprae` | `postgres://` URLs are normalised automatically |
 | API | `ANTHROPIC_API_KEY` | `sk-ant-…` | Optional; without it the Copilot uses templates |
 | API | `ANTHROPIC_MODEL` | `claude-opus-5-5` | |
+| API | `GEMINI_API_KEY` | `…` | Optional alternative: Google Gemini, used when `ANTHROPIC_API_KEY` is empty |
+| API | `GEMINI_MODEL` | `gemini-3.5-flash` | |
+| API | `XAI_API_KEY` | `xai-…` | Optional alternative: xAI Grok, used when no Anthropic or Gemini key is set |
+| API | `XAI_MODEL` | `grok-4.7` | |
 | API | `CORS_ORIGINS` | `https://app.example.com` | Only needed if browsers call the API directly |
 | API | `WEB_CONCURRENCY` | `2` | uvicorn worker processes |
 | API | `SEED_SAMPLE_DATA` | `false` | Seeds 30 fictional demo leads into an empty DB |

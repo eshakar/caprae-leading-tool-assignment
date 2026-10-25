@@ -19,8 +19,9 @@ Open http://localhost:8000/docs. On first start, 30 fictional demo leads are see
 createdb caprae_test
 pytest
 ```
-The 24 tests cover normalisation, email verification, the scoring rules (knockouts, sales vs acquisition mode),
-HTML/JSON-LD extraction, blocked-site handling, template outreach, and the full API (CRUD, dedup, CSV
+The tests cover normalisation, email verification, the scoring rules (knockouts, sales vs acquisition mode),
+HTML/JSON-LD extraction, blocked-site handling, template outreach, the Claude/Gemini/Grok provider layer (mocked), the AI search parser
+and filter sanitising, the rule-based brief, and the full API (CRUD, dedup, CSV
 import/export in three formats, ICP rescoring, bulk actions, validation errors, follow-up scheduling, activity timeline, Action Center).
 
 ## Layout
@@ -32,12 +33,14 @@ app/
   db/seed.py            fictional demo dataset (.example domains)
   models/               Lead, LeadActivity, ICPProfile, EnrichmentJob, OutreachDraft
   schemas/              request/response models + validation
-  api/routes/           leads, icp, outreach, stats/health
+  api/routes/           leads, icp, outreach, ai, stats/health
   services/
     crawler.py          robots-aware async crawler + JSON-LD/markup/text extraction
     email_validation.py syntax → disposable/role → cached MX lookup
     scoring.py          explainable Deal Signal Score + knockouts + next best action
-    outreach.py         Claude structured-output copilot with template fallback
+    llm.py              provider-agnostic structured-output calls (Claude / Gemini / Grok) + fallbacks
+    outreach.py         AI Outreach Copilot with template fallback
+    ai_insights.py      Ask AI search (plain English -> validated filters) and the AI Pipeline Brief
     activity.py         activity timeline, stage-driven follow-ups, Action Center
     leads.py            enrichment orchestration, background jobs, dedup, CSV import/export, stats
     normalize.py        domain/company/phone/state/number normalisation

@@ -64,4 +64,4 @@ for n in "$APP-db-sg" "$APP-svc-sg" "$APP-alb-sg"; do
   id=$(q ec2 describe-security-groups --filters Name=group-name,Values="$n" Name=vpc-id,Values="$VPC" --query 'SecurityGroups[0].GroupId' --output text)
   [[ -n "$id" && "$id" != "None" ]] && { aws ec2 delete-security-group --group-id "$id" 2>/dev/null || echo "   $n still in use - re-run teardown in a minute"; }
 done
-log "Teardown complete. (The optional caprae/ANTHROPIC_API_KEY secret, if you created it, is left untouched.)"
+log "Teardown complete. (Optional caprae/ANTHROPIC_API_KEY / GEMINI_API_KEY / XAI_API_KEY secrets, if you created them, are left untouched.)"

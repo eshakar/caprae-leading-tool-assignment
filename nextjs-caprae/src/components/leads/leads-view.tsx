@@ -66,8 +66,28 @@ const SORTS = [
 ];
 const TIERS: Tier[] = ["hot", "warm", "cold"];
 const PAGE_SIZE = 25;
+const MULTI = "__multi";
+
+/** Select value for a multi-value filter: "all", the single value, or a read-only "several" marker. */
+function selectValue(values: string[]) {
+  return values.length === 0 ? "all" : values.length === 1 ? values[0] : MULTI;
+}
+
+function MultiItem({ values }: { values: string[] }) {
+  return values.length > 1 ? (
+    <SelectItem value={MULTI} disabled>
+      {values.join(", ")}
+    </SelectItem>
+  ) : null;
+}
 
 export function LeadsView() {
+  // Filters arrive in the URL from Ask AI / the command palette; a new AI query remounts with fresh state.
+  const searchParams = useSearchParams();
+  return <LeadsViewInner key={searchParams.get("ai") ?? ""} />;
+}
+
+function LeadsViewInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -82,16 +102,21 @@ export function LeadsView() {
     router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
   };
 
-  const [search, setSearch] = useState("");
+  const aiQuery = searchParams.get("ai");
+  const aiWhy = searchParams.get("why");
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const deferredSearch = useDeferredValue(search);
-  const [tiers, setTiers] = useState<Tier[]>([]);
-  const [stage, setStage] = useState<string>("all");
-  const [industry, setIndustry] = useState<string>("all");
-  const [stateFilter, setStateFilter] = useState<string>("all");
-  const [minScore, setMinScore] = useState(0);
-  const [hasEmail, setHasEmail] = useState(false);
-  const [dueOnly, setDueOnly] = useState(false);
-  const [sort, setSort] = useState("-score");
+  const [tiers, setTiers] = useState<Tier[]>(() => searchParams.getAll("tier").filter((t): t is Tier => TIERS.includes(t as Tier)));
+  const [stage, setStage] = useState<string[]>(() => searchParams.getAll("stage"));
+  const [industry, setIndustry] = useState<string[]>(() => searchParams.getAll("industry"));
+  const [stateFilter, setStateFilter] = useState<string[]>(() => searchParams.getAll("state"));
+  const [minScore, setMinScore] = useState(() => Number(searchParams.get("min_score")) || 0);
+  const [hasEmail, setHasEmail] = useState(() => searchParams.get("has_email") === "true");
+  const [dueOnly, setDueOnly] = useState(() => searchParams.get("follow_up_due") === "true");
+  const [sort, setSort] = useState(() => {
+    const s = searchParams.get("sort");
+    return s && SORTS.some((x) => x.value === s) ? s : "-score";
+  });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
@@ -99,9 +124,9 @@ export function LeadsView() {
     () => ({
       search: deferredSearch.trim() || undefined,
       tier: tiers.length ? tiers : undefined,
-      stage: stage !== "all" ? [stage] : undefined,
-      industry: industry !== "all" ? [industry] : undefined,
-      state: stateFilter !== "all" ? [stateFilter] : undefined,
+      stage: stage.length ? stage : undefined,
+      industry: industry.length ? industry : undefined,
+      state: stateFilter.length ? stateFilter : undefined,
       min_score: minScore > 0 ? minScore : undefined,
       has_email: hasEmail ? true : undefined,
       follow_up_due: dueOnly ? true : undefined,
@@ -114,7 +139,7 @@ export function LeadsView() {
   const { job, start: startEnrichment, running } = useEnrichmentJob();
 
   const activeFilters =
-    tiers.length + (stage !== "all" ? 1 : 0) + (industry !== "all" ? 1 : 0) + (stateFilter !== "all" ? 1 : 0) + (minScore > 0 ? 1 : 0) + (hasEmail ? 1 : 0) + (dueOnly ? 1 : 0);
+    tiers.length + (stage.length ? 1 : 0) + (industry.length ? 1 : 0) + (stateFilter.length ? 1 : 0) + (minScore > 0 ? 1 : 0) + (hasEmail ? 1 : 0) + (dueOnly ? 1 : 0);
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
   const items = data?.items ?? [];
   const allOnPageSelected = items.length > 0 && items.every((i) => selected.has(i.id));
@@ -129,9 +154,9 @@ export function LeadsView() {
 
   function clearFilters() {
     setTiers([]);
-    setStage("all");
-    setIndustry("all");
-    setStateFilter("all");
+    setStage([]);
+    setIndustry([]);
+    setStateFilter([]);
     setMinScore(0);
     setHasEmail(false);
     setDueOnly(false);
@@ -249,6 +274,19 @@ export function LeadsView() {
         }
       />
 
+      {aiQuery && (
+        <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">&ldquo;{aiQuery}&rdquo;</p>
+            {aiWhy && <p className="text-muted-foreground">{aiWhy}</p>}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => router.replace(pathname)}>
+            <X /> Clear
+          </Button>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative flex-1">
@@ -284,12 +322,13 @@ export function LeadsView() {
               );
             })}
           </div>
-          <Select value={stage} onValueChange={resetPage(setStage)}>
+          <Select value={selectValue(stage)} onValueChange={(v) => resetPage(setStage)(v === "all" ? [] : [v])}>
             <SelectTrigger className="w-[130px]" aria-label="Stage">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All stages</SelectItem>
+              <MultiItem values={stage} />
               {STAGES.map((s) => (
                 <SelectItem key={s.value} value={s.value}>
                   {s.label}
@@ -307,12 +346,13 @@ export function LeadsView() {
             <PopoverContent align="end" className="w-80 space-y-4">
               <div className="grid gap-2">
                 <Label>Industry</Label>
-                <Select value={industry} onValueChange={resetPage(setIndustry)}>
+                <Select value={selectValue(industry)} onValueChange={(v) => resetPage(setIndustry)(v === "all" ? [] : [v])}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All industries</SelectItem>
+                    <MultiItem values={industry} />
                     {facets?.industries.map((i) => (
                       <SelectItem key={i} value={i}>
                         {i}
@@ -323,12 +363,13 @@ export function LeadsView() {
               </div>
               <div className="grid gap-2">
                 <Label>State</Label>
-                <Select value={stateFilter} onValueChange={resetPage(setStateFilter)}>
+                <Select value={selectValue(stateFilter)} onValueChange={(v) => resetPage(setStateFilter)(v === "all" ? [] : [v])}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All states</SelectItem>
+                    <MultiItem values={stateFilter} />
                     {facets?.states.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
