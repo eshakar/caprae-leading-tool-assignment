@@ -37,7 +37,7 @@ image works in every environment.
 
 ## Checks
 ```bash
-npx tsc --noEmit && npm run lint && npm run build
+npm run typecheck && npm run lint && npm run build   # typecheck generates Next's route types first
 ```
 
 ## Docker

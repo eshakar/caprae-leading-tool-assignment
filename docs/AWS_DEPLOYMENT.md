@@ -3,12 +3,62 @@
 Both apps ship as Docker images. The API runs its own migrations on boot (`scripts/start.sh`), and the web app reads
 `API_URL` at **runtime**, so you build each image once and promote the same image through every environment.
 
-There are two paths:
+There are three paths: the free-tier EC2 path just below, then:
 
 - **Path A: AWS App Runner.** The fastest, with no load balancer or cluster to manage. Good for demos and small teams.
 - **Path B: ECS Fargate + ALB.** The production path: the API stays private and you get full control.
 
 Both use **RDS PostgreSQL**, **ECR** and **Secrets Manager**.
+
+## Free-tier path (recommended for demos): one EC2 instance, ~$0
+
+Everything runs on **one `t3.micro` EC2 instance** with Docker Compose: Postgres, the API and the web app, with
+the web app on port 80. GitHub Actions builds the images and publishes them to GitHub Container Registry for free,
+so the small instance never has to compile anything.
+
+```
+GitHub push ──► Actions builds images ──► ghcr.io/eshakar/caprae-{api,web}
+                                                   │ docker compose pull
+Browser ──HTTP:80──► EC2 t3.micro ┌ web  (Next.js)  ── /api proxy ──┐
+                                  │ api  (FastAPI)  ◄───────────────┘
+                                  └ db   (Postgres 17, on the instance's EBS disk)
+```
+
+**Steps**
+1. Push to `main`. The **Images** workflow builds `caprae-api` and `caprae-web`.
+2. One time only, make both packages public: GitHub → your profile → **Packages** → `caprae-api` → **Package
+   settings** → **Change visibility → Public**. Then do the same for `caprae-web`.
+3. Sign in to the AWS CLI (`aws login` or `aws configure`). Optionally store an AI key, which is encrypted at rest:
+   ```bash
+   aws ssm put-parameter --region ap-south-1 --name /caprae/GEMINI_API_KEY --type SecureString --value '<key>' --overwrite
+   ```
+4. Deploy (takes about 5 minutes the first time). The script prints the URL:
+   ```bash
+   AWS_REGION=ap-south-1 ./deploy/ec2/deploy.sh
+   ```
+5. Re-run the same command to roll out new images. To delete everything:
+   `AWS_REGION=ap-south-1 ./deploy/ec2/teardown.sh`
+
+**What it creates:** a security group that allows HTTP on port 80 only (no SSH), an IAM role for Systems Manager
+(shell access with `aws ssm start-session --target <instance-id>`, plus reading the `/caprae/*` keys), and the
+instance itself (Amazon Linux 2023, 20 GiB gp3 disk, 2 GiB swap). The database password is generated on the
+instance and never leaves it.
+
+**Cost**
+
+| Account type | Monthly cost |
+|---|---|
+| Accounts opened before 15 Jul 2025 (12-month free tier) | **$0**: 750 h of t3.micro, 30 GB of EBS, 750 h of public IPv4 and 100 GB of data out are all free |
+| Newer "Free plan" accounts (credits) | About **$13/month** (t3.micro ≈ $8, public IPv4 ≈ $3.60, 20 GB gp3 ≈ $1.60), deducted from your $100–$200 signup credits |
+| For comparison: the ECS Fargate + ALB + RDS quick path below | About $45–50/month |
+
+**Trade-offs:** HTTP only, on the instance's public IP, which changes if you stop and start the instance. There is
+one instance, and the data lives on its disk. That's fine for a demo or interview, but not for production. To add
+HTTPS, put a domain on the instance and use Caddy or CloudFront.
+
+> **Tip:** create a $1 budget alert in **Billing → Budgets** so any unexpected charge emails you immediately.
+
+---
 
 ## Quick path: one command (no local Docker needed)
 

@@ -16,6 +16,8 @@ Caprae Full Stack Developer pre-screening challenge.
 fastapi-caprae/   REST API: enrichment crawler, email verification, Deal Signal scoring, AI outreach, CSV import/export
 nextjs-caprae/    Web app: dashboard, lead table, lead workspace, pipeline board, scoring-profile editor
 docs/             Project overview (purpose + how AI helps) and AWS deployment guide
+deploy/ec2/       Free-tier AWS deploy: one EC2 t3.micro running the whole stack (~$0)
+deploy/aws/       Production-style AWS deploy: ECS Fargate + ALB + RDS
 ```
 
 ---

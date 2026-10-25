@@ -1,0 +1,55 @@
+# Production stack for a single free-tier EC2 instance (1 GiB RAM + swap).
+# Images are built by .github/workflows/images.yml and pulled from GitHub Container Registry.
+# /opt/caprae/.env (written on the instance, never committed) provides POSTGRES_PASSWORD, IMAGE_OWNER and AI keys.
+services:
+  db:
+    image: public.ecr.aws/docker/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: caprae
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: caprae
+    # Small-instance tuning: modest caches and connection count.
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "work_mem=4MB", "-c", "max_connections=40",
+              "-c", "effective_cache_size=192MB"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caprae -d caprae"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 256m
+
+  api:
+    image: ghcr.io/${IMAGE_OWNER}/caprae-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://caprae:${POSTGRES_PASSWORD}@db:5432/caprae
+      WEB_CONCURRENCY: "1"
+      DB_POOL_SIZE: "3"
+      DB_MAX_OVERFLOW: "2"
+      SEED_SAMPLE_DATA: "true"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 384m
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER}/caprae-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      NODE_OPTIONS: --max-old-space-size=192
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:3000"
+    mem_limit: 320m
+
+volumes:
+  pgdata:
