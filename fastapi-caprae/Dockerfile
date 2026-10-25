@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM public.ecr.aws/docker/library/python:3.12-slim
+# Base registry: ECR Public by default (no Docker Hub limits inside AWS); CI overrides it with a Docker Hub mirror.
+ARG BASE_REGISTRY=public.ecr.aws/docker/library
+FROM ${BASE_REGISTRY}/python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

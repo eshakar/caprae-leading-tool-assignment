@@ -19,6 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: caprae-api
@@ -40,6 +41,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           platforms: linux/amd64
+          # Anonymous ECR Public pulls hit data limits on shared GitHub runners; use Google's Docker Hub mirror.
+          build-args: |
+            BASE_REGISTRY=mirror.gcr.io/library
           push: true
           tags: |
             ${{ steps.img.outputs.ref }}:latest

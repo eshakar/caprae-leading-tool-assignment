@@ -1,17 +1,19 @@
 # syntax=docker/dockerfile:1
-FROM public.ecr.aws/docker/library/node:22-alpine AS deps
+# Base registry: ECR Public by default (no Docker Hub limits inside AWS); CI overrides it with a Docker Hub mirror.
+ARG BASE_REGISTRY=public.ecr.aws/docker/library
+FROM ${BASE_REGISTRY}/node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM public.ecr.aws/docker/library/node:22-alpine AS builder
+FROM ${BASE_REGISTRY}/node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM public.ecr.aws/docker/library/node:22-alpine AS runner
+FROM ${BASE_REGISTRY}/node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
