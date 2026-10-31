@@ -28,9 +28,10 @@ log "Account $ACCOUNT · region $REGION"
 log "Checking container images on ghcr.io/$IMAGE_OWNER"
 for img in caprae-api caprae-web; do
   tok=$(curl -fsS "https://ghcr.io/token?scope=repository:$IMAGE_OWNER/$img:pull" | sed -E 's/.*"token":"([^"]+)".*/\1/' || true)
-  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $tok" \
+  # No "-o /dev/null": with MSYS_NO_PATHCONV set, Git Bash's curl can't open it on Windows.
+  code=$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $tok" \
     -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
-    "https://ghcr.io/v2/$IMAGE_OWNER/$img/manifests/latest")
+    "https://ghcr.io/v2/$IMAGE_OWNER/$img/manifests/latest" | tail -n1)
   [[ "$code" == "200" ]] || die "ghcr.io/$IMAGE_OWNER/$img:latest is not publicly pullable (HTTP $code).
   1) Make sure the 'Images' GitHub Action has finished successfully.
   2) On GitHub: your profile -> Packages -> $img -> Package settings -> Change visibility -> Public."
@@ -96,9 +97,12 @@ else
   fi
 
   # Prefer a free-tier-eligible type: t3.micro (most regions) or t2.micro.
-  TYPE=$(q ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true \
-    --query "InstanceTypes[?InstanceType=='t3.micro' || InstanceType=='t2.micro'].InstanceType | sort(@) | [-1]" --output text)
-  [[ -n "$TYPE" && "$TYPE" != "None" ]] || TYPE=t3.micro
+  # Ask about just these two types (no pagination); which one is free depends on the account and region.
+  ELIGIBLE=$(q ec2 describe-instance-types --instance-types t3.micro t2.micro \
+    --query "InstanceTypes[?FreeTierEligible].InstanceType" --output text)
+  if [[ "$ELIGIBLE" == *t3.micro* ]]; then TYPE=t3.micro
+  elif [[ "$ELIGIBLE" == *t2.micro* ]]; then TYPE=t2.micro
+  else TYPE=t3.micro; fi
   AMI=$(q ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
     --query Parameter.Value --output text)
 
@@ -107,7 +111,7 @@ else
   printf '#!/bin/bash\n%s\n' "$PAYLOAD" > "$USER_DATA"
   INSTANCE_ID=$(q ec2 run-instances --image-id "$AMI" --instance-type "$TYPE" \
     --security-group-ids "$SG" --iam-instance-profile Name="$ROLE" \
-    --user-data "file://$USER_DATA" \
+    --user-data "file://$(cygpath -m "$USER_DATA" 2>/dev/null || echo "$USER_DATA")" \
     --metadata-options HttpTokens=required,HttpEndpoint=enabled \
     --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=20,VolumeType=gp3,DeleteOnTermination=true}' \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$NAME},{Key=app,Value=$APP}]" \
@@ -121,7 +125,7 @@ IP=$(q ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservation
 URL="http://$IP"
 log "Waiting for $URL (first boot installs Docker and pulls images: ~3-6 min)"
 for i in $(seq 1 60); do
-  if curl -fsS -m 5 -o /dev/null "$URL/api/health"; then
+  if curl -fsS -m 5 "$URL/api/health" >/dev/null 2>&1; then
     log "Live: $URL"
     echo "   Instance: $INSTANCE_ID ($REGION)   ·   Shell: aws ssm start-session --target $INSTANCE_ID"
     echo "   Logs:     sudo tail -f /var/log/caprae-deploy.log  ·  cd /opt/caprae && sudo docker compose logs -f"
