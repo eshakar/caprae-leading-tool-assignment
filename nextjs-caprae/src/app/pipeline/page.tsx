@@ -8,9 +8,7 @@ export const metadata: Metadata = { title: "Pipeline" };
 export default function Page() {
   return (
     <>
-      <TopBar>
-        <span className="font-medium">Pipeline</span>
-      </TopBar>
+      <TopBar />
       <PipelineBoard />
     </>
   );

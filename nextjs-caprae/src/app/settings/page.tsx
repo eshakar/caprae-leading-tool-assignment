@@ -8,9 +8,7 @@ export const metadata: Metadata = { title: "Scoring profile" };
 export default function Page() {
   return (
     <>
-      <TopBar>
-        <span className="font-medium">Scoring profile</span>
-      </TopBar>
+      <TopBar />
       <IcpForm />
     </>
   );

@@ -20,9 +20,7 @@ function LeadsFallback() {
 export default function Page() {
   return (
     <>
-      <TopBar>
-        <span className="font-medium">Leads</span>
-      </TopBar>
+      <TopBar />
       {/* LeadsView reads search params, so it renders inside a Suspense boundary. */}
       <Suspense fallback={<LeadsFallback />}>
         <LeadsView />
