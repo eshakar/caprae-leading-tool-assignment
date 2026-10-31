@@ -3,11 +3,10 @@
 An enhancement to Caprae Capital's [SaaSquatch](https://www.saasquatchleads.com/) lead-generation tool, built for the
 Caprae Full Stack Developer pre-screening challenge.
 
-**🔗 Live demo: [http://13.203.155.35](http://13.203.155.35)**. Hosted on AWS (EC2 free tier, Mumbai) with Gemini
+**🔗 Live demo: [https://3-7-47-162.sslip.io](https://3-7-47-162.sslip.io)**. Hosted on AWS (EC2 free tier, Mumbai, HTTPS via Let's Encrypt) with Gemini
 powering the AI features, and loaded with 30 fictional sample leads. Try **Ask AI** in the dashboard hero, press
 **Ctrl K / ⌘K** anywhere, click **Generate brief**, or open a lead and use the **AI Outreach Copilot**.
-*HTTP only. If the link is down, the demo instance has been stopped; [run it locally](#4-run-it-locally) in one
-command.*
+*If the link is down, the demo instance has been stopped; [run it locally](#4-run-it-locally) in one command.*
 
 > **New here?** Read [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for what this project is for and exactly
 > how AI is used (and where it deliberately isn't).
@@ -28,7 +27,7 @@ deploy/aws/       Production-style AWS deploy: ECS Fargate + ALB + RDS
 
 ## Screenshots
 
-*Captured from the [live demo](http://13.203.155.35). All companies are fictional sample data.*
+*Captured from the [live demo](https://3-7-47-162.sslip.io). All companies are fictional sample data.*
 
 **Dashboard:** interactive "lead constellation" hero with Ask AI search, KPIs, and the AI Pipeline Brief.
 ![Dashboard, light mode](docs/screenshots/dashboard-light.png)

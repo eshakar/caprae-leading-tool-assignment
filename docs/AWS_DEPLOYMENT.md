@@ -12,16 +12,17 @@ Both use **RDS PostgreSQL**, **ECR** and **Secrets Manager**.
 
 ## Free-tier path (recommended for demos): one EC2 instance, ~$0
 
-Everything runs on **one `t3.micro` EC2 instance** with Docker Compose: Postgres, the API and the web app, with
-the web app on port 80. GitHub Actions builds the images and publishes them to GitHub Container Registry for free,
+Everything runs on **one free-tier EC2 instance** (`t3.micro`, or `t2.micro` where that is the free type, as in
+`ap-south-1` on older accounts) with Docker Compose: Postgres, the API, the web app, and **Caddy**, which serves HTTPS
+with automatic Let's Encrypt certificates. The instance has an **Elastic IP**, so its address never changes. GitHub Actions builds the images and publishes them to GitHub Container Registry for free,
 so the small instance never has to compile anything.
 
 ```
 GitHub push ──► Actions builds images ──► ghcr.io/eshakar/caprae-{api,web}
                                                    │ docker compose pull
-Browser ──HTTP:80──► EC2 t3.micro ┌ web  (Next.js)  ── /api proxy ──┐
-                                  │ api  (FastAPI)  ◄───────────────┘
-                                  └ db   (Postgres 17, on the instance's EBS disk)
+Browser ──HTTPS:443──► Elastic IP ─► EC2 ┌ caddy (TLS, Let's Encrypt) ─► web (Next.js) ── /api ─┐
+                                           │ api   (FastAPI)  ◄────────────────────────────────────┘
+                                           └ db    (Postgres 17, on the instance's EBS disk)
 ```
 
 **Steps**
@@ -32,14 +33,22 @@ Browser ──HTTP:80──► EC2 t3.micro ┌ web  (Next.js)  ── /api prox
    ```bash
    aws ssm put-parameter --region ap-south-1 --name /caprae/GEMINI_API_KEY --type SecureString --value '<key>' --overwrite
    ```
-4. Deploy (takes about 5 minutes the first time). The script prints the URL:
+4. Deploy (takes about 5 minutes the first time). The script prints the URL, by default
+   `https://<elastic-ip-with-dashes>.sslip.io`, which needs no signup:
    ```bash
    AWS_REGION=ap-south-1 ./deploy/ec2/deploy.sh
    ```
+   **Want a nicer name?** Create a free subdomain at [duckdns.org](https://www.duckdns.org), for example
+   `caprae-demo.duckdns.org`, and set its IP to the Elastic IP the script printed. Then redeploy with it:
+   ```bash
+   AWS_REGION=ap-south-1 DOMAIN=caprae-demo.duckdns.org ./deploy/ec2/deploy.sh
+   ```
+   Caddy gets a certificate for the new name within a minute. `duckdns.org` is on the Public Suffix List, so its
+   Let's Encrypt limits aren't shared with other users. `sslip.io` isn't on it, so its limits are shared.
 5. Re-run the same command to roll out new images. To delete everything:
    `AWS_REGION=ap-south-1 ./deploy/ec2/teardown.sh`
 
-**What it creates:** a security group that allows HTTP on port 80 only (no SSH), an IAM role for Systems Manager
+**What it creates:** a security group that allows only ports 80 and 443 (no SSH), an Elastic IP, an IAM role for Systems Manager
 (shell access with `aws ssm start-session --target <instance-id>`, plus reading the `/caprae/*` keys), and the
 instance itself (Amazon Linux 2023, 20 GiB gp3 disk, 2 GiB swap). The database password is generated on the
 instance and never leaves it.
@@ -48,13 +57,13 @@ instance and never leaves it.
 
 | Account type | Monthly cost |
 |---|---|
-| Accounts opened before 15 Jul 2025 (12-month free tier) | **$0**: 750 h of t3.micro, 30 GB of EBS, 750 h of public IPv4 and 100 GB of data out are all free |
+| Accounts opened before 15 Jul 2025 (12-month free tier) | **$0**: 750 h of t2/t3.micro, 30 GB of EBS, 750 h of public IPv4 (the Elastic IP, while attached) and 100 GB of data out are all free |
 | Newer "Free plan" accounts (credits) | About **$13/month** (t3.micro ≈ $8, public IPv4 ≈ $3.60, 20 GB gp3 ≈ $1.60), deducted from your $100–$200 signup credits |
 | For comparison: the ECS Fargate + ALB + RDS quick path below | About $45–50/month |
 
-**Trade-offs:** HTTP only, on the instance's public IP, which changes if you stop and start the instance. There is
-one instance, and the data lives on its disk. That's fine for a demo or interview, but not for production. To add
-HTTPS, put a domain on the instance and use Caddy or CloudFront.
+**Trade-offs:** there is one instance, and the data lives on its disk. That's fine for a demo or interview, but not
+for production. The Elastic IP is free while it's attached to the running instance, but an *unattached* Elastic IP
+is billed. `teardown.sh` always releases it.
 
 > **Tip:** create a $1 budget alert in **Billing → Budgets** so any unexpected charge emails you immediately.
 

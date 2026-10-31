@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deletes everything deploy/ec2/deploy.sh created (instance + its disk and data, security group, IAM role).
+# Deletes everything deploy/ec2/deploy.sh created (instance + its disk and data, Elastic IP, security group, IAM role).
 #   AWS_REGION=ap-south-1 ./deploy/ec2/teardown.sh
 set -uo pipefail
 export MSYS_NO_PATHCONV=1 AWS_PAGER=""
@@ -19,6 +19,13 @@ if [[ -n "$IDS" ]]; then
   aws ec2 terminate-instances --instance-ids $IDS >/dev/null
   aws ec2 wait instance-terminated --instance-ids $IDS
 fi
+
+log "Elastic IP (an unattached Elastic IP is billed, so it is always released)"
+for alloc in $(q ec2 describe-addresses --filters "Name=tag:app,Values=$APP" --query 'Addresses[].AllocationId' --output text); do
+  assoc=$(q ec2 describe-addresses --allocation-ids "$alloc" --query 'Addresses[0].AssociationId' --output text)
+  [[ "$assoc" != "None" && -n "$assoc" ]] && aws ec2 disassociate-address --association-id "$assoc"
+  aws ec2 release-address --allocation-id "$alloc" && echo "   released $alloc"
+done
 
 log "Security group"
 VPC=$(q ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)

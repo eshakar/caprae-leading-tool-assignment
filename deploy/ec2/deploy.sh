@@ -2,9 +2,12 @@
 # Lowest-cost AWS deployment: ONE free-tier EC2 instance running Postgres + API + web with Docker Compose.
 #
 #   AWS_REGION=ap-south-1 ./deploy/ec2/deploy.sh
+#   AWS_REGION=ap-south-1 DOMAIN=yourname.duckdns.org ./deploy/ec2/deploy.sh   # custom HTTPS hostname
 #
-# First run creates: a security group (port 80 only, no SSH), an IAM role for SSM, and a t3.micro instance
-# (Amazon Linux 2023, 20 GiB gp3). Re-running redeploys the latest images on the same instance via SSM.
+# First run creates: a security group (ports 80/443 only, no SSH), an Elastic IP (fixed address), an IAM role for
+# SSM, and a free-tier t3/t2.micro instance (Amazon Linux 2023, 20 GiB gp3). Caddy on the instance serves HTTPS
+# with automatic Let's Encrypt certificates for DOMAIN (default: <ip>.sslip.io, no signup needed).
+# Re-running redeploys the latest images on the same instance via SSM.
 # Images come from GitHub Container Registry (built by .github/workflows/images.yml).
 # Optional AI key (stored encrypted in SSM Parameter Store, read by the instance at deploy time):
 #   aws ssm put-parameter --name /caprae/GEMINI_API_KEY --type SecureString --value '<key>' --overwrite
@@ -38,9 +41,42 @@ for img in caprae-api caprae-web; do
   echo "   $img: ok"
 done
 
+# ------------------------------------------------------------------ network: security group + fixed IP
+VPC=$(q ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
+[[ "$VPC" != "None" ]] || die "No default VPC in $REGION"
+
+log "Security group (HTTP + HTTPS only - no SSH; use Session Manager for shell access)"
+SG=$(q ec2 describe-security-groups --filters Name=group-name,Values="$APP-ec2-sg" Name=vpc-id,Values="$VPC" \
+  --query 'SecurityGroups[0].GroupId' --output text)
+if [[ "$SG" == "None" ]]; then
+  SG=$(q ec2 create-security-group --group-name "$APP-ec2-sg" --description "SaaSquatch Pro web (HTTP/HTTPS)" \
+    --vpc-id "$VPC" --query GroupId --output text)
+fi
+for port in 80 443; do  # idempotent: an existing rule just returns a duplicate error
+  aws ec2 authorize-security-group-ingress --group-id "$SG" --protocol tcp --port "$port" --cidr 0.0.0.0/0 >/dev/null 2>&1 || true
+done
+
+log "Elastic IP (fixed address, so DNS names and links survive a stop/start)"
+ALLOC_ID=$(q ec2 describe-addresses --filters "Name=tag:app,Values=$APP" --query 'Addresses[0].AllocationId' --output text)
+if [[ "$ALLOC_ID" == "None" || -z "$ALLOC_ID" ]]; then
+  ALLOC_ID=$(q ec2 allocate-address --domain vpc \
+    --tag-specifications "ResourceType=elastic-ip,Tags=[{Key=Name,Value=$NAME},{Key=app,Value=$APP}]" \
+    --query AllocationId --output text)
+fi
+IP=$(q ec2 describe-addresses --allocation-ids "$ALLOC_ID" --query 'Addresses[0].PublicIp' --output text)
+DOMAIN="${DOMAIN:-${IP//./-}.sslip.io}"
+echo "   $IP  ->  https://$DOMAIN"
+
+associate_ip() {
+  local current
+  current=$(q ec2 describe-addresses --allocation-ids "$ALLOC_ID" --query 'Addresses[0].InstanceId' --output text)
+  [[ "$current" == "$INSTANCE_ID" ]] || aws ec2 associate-address --allocation-id "$ALLOC_ID" \
+    --instance-id "$INSTANCE_ID" --allow-reassociation >/dev/null
+}
+
 # ------------------------------------------------------------------ payload run on the instance
 COMPOSE_B64=$(base64 -w0 < "$HERE/docker-compose.yml")
-PAYLOAD=$(printf 'COMPOSE_B64=%s\nIMAGE_OWNER=%s\n' "$COMPOSE_B64" "$IMAGE_OWNER"; tr -d '\r' < "$HERE/bootstrap.sh" | sed '1d')
+PAYLOAD=$(printf 'COMPOSE_B64=%s\nIMAGE_OWNER=%s\nDOMAIN=%s\n' "$COMPOSE_B64" "$IMAGE_OWNER" "$DOMAIN"; tr -d '\r' < "$HERE/bootstrap.sh" | sed '1d')
 
 INSTANCE_ID=$(q ec2 describe-instances \
   --filters "Name=tag:Name,Values=$NAME" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
@@ -54,6 +90,7 @@ if [[ "$INSTANCE_ID" != "None" && -n "$INSTANCE_ID" ]]; then
     aws ec2 start-instances --instance-ids "$INSTANCE_ID" >/dev/null
   fi
   aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+  associate_ip
   log "Redeploying latest images on $INSTANCE_ID via SSM"
   CMD_B64=$(printf '#!/bin/bash\n%s\n' "$PAYLOAD" | base64 -w0)
   for _ in $(seq 1 30); do  # the SSM agent needs a moment after boot
@@ -69,18 +106,6 @@ if [[ "$INSTANCE_ID" != "None" && -n "$INSTANCE_ID" ]]; then
     --query '{status:Status,output:StandardOutputContent,errors:StandardErrorContent}' --output text | tail -25
 else
   # ---------------------------------------------------------------- first deployment
-  VPC=$(q ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
-  [[ "$VPC" != "None" ]] || die "No default VPC in $REGION"
-
-  log "Security group (HTTP only - no SSH; use Session Manager for shell access)"
-  SG=$(q ec2 describe-security-groups --filters Name=group-name,Values="$APP-ec2-sg" Name=vpc-id,Values="$VPC" \
-    --query 'SecurityGroups[0].GroupId' --output text)
-  if [[ "$SG" == "None" ]]; then
-    SG=$(q ec2 create-security-group --group-name "$APP-ec2-sg" --description "SaaSquatch Pro web (HTTP)" \
-      --vpc-id "$VPC" --query GroupId --output text)
-    aws ec2 authorize-security-group-ingress --group-id "$SG" --protocol tcp --port 80 --cidr 0.0.0.0/0 >/dev/null
-  fi
-
   log "IAM role for SSM (shell access + reading /caprae/* parameters)"
   ROLE="$APP-ec2-role"
   if ! aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
@@ -119,15 +144,24 @@ else
     --query 'Instances[0].InstanceId' --output text)
   rm -f "$USER_DATA"
   aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+  associate_ip
 fi
 
-IP=$(q ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-URL="http://$IP"
-log "Waiting for $URL (first boot installs Docker and pulls images: ~3-6 min)"
-for i in $(seq 1 60); do
-  if curl -fsS -m 5 "$URL/api/health" >/dev/null 2>&1; then
-    log "Live: $URL"
-    echo "   Instance: $INSTANCE_ID ($REGION)   ·   Shell: aws ssm start-session --target $INSTANCE_ID"
+log "Waiting for http://$IP (first boot installs Docker and pulls images: ~3-6 min)"
+for _ in $(seq 1 60); do
+  if curl -fsS -m 5 "http://$IP/api/health" >/dev/null 2>&1; then
+    log "Live over HTTP: http://$IP - waiting for the HTTPS certificate for $DOMAIN"
+    HTTPS_OK=""
+    for _ in $(seq 1 18); do
+      if curl -fsS -m 10 "https://$DOMAIN/api/health" >/dev/null 2>&1; then HTTPS_OK=1; break; fi
+      sleep 10
+    done
+    if [[ -n "$HTTPS_OK" ]]; then
+      log "Live: https://$DOMAIN"
+    else
+      echo "   HTTPS not ready yet (certificate still being issued). Check: cd /opt/caprae && sudo docker compose logs caddy"
+    fi
+    echo "   Instance: $INSTANCE_ID ($REGION)   ·   Elastic IP: $IP   ·   Shell: aws ssm start-session --target $INSTANCE_ID"
     echo "   Logs:     sudo tail -f /var/log/caprae-deploy.log  ·  cd /opt/caprae && sudo docker compose logs -f"
     exit 0
   fi

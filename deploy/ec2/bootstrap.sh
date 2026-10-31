@@ -2,7 +2,7 @@
 # Runs ON the EC2 instance (as root): first boot via user-data, and on every redeploy via SSM Run Command.
 # Idempotent: installs Docker + Compose and swap once, keeps the generated DB password, refreshes AI keys from
 # SSM Parameter Store, then pulls the latest images and (re)starts the stack.
-# deploy.sh prepends `COMPOSE_B64=...` and `IMAGE_OWNER=...` lines before running this.
+# deploy.sh prepends `COMPOSE_B64=...`, `IMAGE_OWNER=...` and `DOMAIN=...` lines before running this.
 set -euo pipefail
 exec > >(tee -a /var/log/caprae-deploy.log) 2>&1
 echo "=== caprae deploy $(date -u +%FT%TZ) ==="
@@ -44,6 +44,7 @@ REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/
   echo "POSTGRES_PASSWORD=$PG_PASS"
   echo "IMAGE_OWNER=$IMAGE_OWNER"
   echo "IMAGE_TAG=${IMAGE_TAG:-latest}"
+  echo "DOMAIN=$DOMAIN"
   # Optional AI keys, stored by you as SecureString parameters /caprae/<NAME>.
   for name in ANTHROPIC_API_KEY GEMINI_API_KEY XAI_API_KEY; do
     val=$(aws ssm get-parameter --region "$REGION" --name "/caprae/$name" --with-decryption \
