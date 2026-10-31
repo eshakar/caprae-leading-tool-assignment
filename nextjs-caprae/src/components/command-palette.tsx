@@ -111,10 +111,12 @@ export function CommandPalette() {
       <Command>
         <CommandInput value={input} onValueChange={setInput} placeholder="Search leads, run a command, or ask AI anything…" />
         <CommandList className="max-h-[420px]">
-          <CommandEmpty>{isLoading ? "Searching…" : "No matches. Press Enter on “Ask AI” to search in plain English."}</CommandEmpty>
+          {/* With 3+ characters the "Ask AI" row is always shown, so the empty state only applies to short input. */}
+          {input.trim().length < 3 && <CommandEmpty>{isLoading ? "Searching…" : "No matches."}</CommandEmpty>}
 
           {input.trim().length >= 3 && (
-            <CommandGroup heading="AI">
+            // forceMount on the group too: cmdk hides a group whose items don't match its own text filter.
+            <CommandGroup heading="AI" forceMount>
               <CommandItem
                 forceMount
                 value={`ask-ai ${input}`}
@@ -133,7 +135,7 @@ export function CommandPalette() {
           )}
 
           {term.length >= 2 && !!matches?.items.length && (
-            <CommandGroup heading={`Leads · ${matches.total} match${matches.total === 1 ? "" : "es"}`}>
+            <CommandGroup heading={`Leads · ${matches.total} match${matches.total === 1 ? "" : "es"}`} forceMount>
               {matches.items.map((l) => (
                 <CommandItem key={l.id} forceMount value={`lead-${l.id} ${l.company_name}`} onSelect={() => go(`/leads/${l.id}`)}>
                   <ScoreRing score={l.score} tier={l.score_tier} size={28} />

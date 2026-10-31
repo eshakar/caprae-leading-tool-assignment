@@ -68,7 +68,7 @@ export function ScoreRing({ score, tier, size = 44 }: { score: number; tier: Tie
   const color = tier === "hot" ? "var(--hot)" : tier === "warm" ? "var(--warm)" : "var(--cold)";
   return (
     <div className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+      <svg width={size} height={size} className="size-full -rotate-90" aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--muted)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
