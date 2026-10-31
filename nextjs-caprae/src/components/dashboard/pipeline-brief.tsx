@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import ShinyText from "@/components/reactbits/ShinyText";
 import { aiApi, type PipelineBrief as Brief } from "@/lib/api";
 
 const TILE_STYLES = [
@@ -42,7 +43,9 @@ export function PipelineBrief() {
               <Sparkles className="size-5" />
             </div>
             <div>
-              <h2 className="font-heading font-semibold">AI Pipeline Brief</h2>
+              <h2 className="font-heading font-semibold">
+                <ShinyText text="AI Pipeline Brief" speed={3} />
+              </h2>
               <span className="font-mono text-[11px] font-bold text-indigo uppercase">Grounded analytical memo</span>
             </div>
           </div>

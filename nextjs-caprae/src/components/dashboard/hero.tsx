@@ -8,6 +8,7 @@ import useSWR from "swr";
 import { ASK_AI_EXAMPLES, useAskAI } from "@/components/ai/use-ask-ai";
 import { openCommandPalette } from "@/components/command-palette";
 import { SignalRadar } from "@/components/dashboard/signal-radar";
+import BlurText from "@/components/reactbits/BlurText";
 import type { LeadPage, Stats } from "@/lib/api";
 
 const PIPELINE_KEY = "/leads?page_size=200&sort=-score";
@@ -43,7 +44,12 @@ export function Hero({ stats }: { stats?: Stats }) {
             <h1 className="font-heading text-3xl leading-none font-bold tracking-tight md:text-[2.5rem] md:leading-[1.1]">
               Built for search funds, PE operators <span className="text-amber-soft">&amp; B2B sales teams</span>
             </h1>
-            <p className="pt-2 font-heading text-xl font-semibold text-gold">Spend time on the leads that will actually close.</p>
+            <BlurText
+              text="Spend time on the leads that will actually close."
+              className="pt-2 font-heading text-xl font-semibold text-gold"
+              delay={60}
+              animateBy="words"
+            />
             <p className="max-w-2xl pt-1 text-sm leading-relaxed text-muted-foreground">
               Every lead is enriched from its website, has its emails verified, and gets an explainable Deal Signal Score.
               Ask for what you want in plain English and the AI finds it, then drafts the first touch.

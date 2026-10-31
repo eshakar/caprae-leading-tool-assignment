@@ -189,7 +189,7 @@ verifying, scoring. Each AI feature is grounded in what the code established.
 
 **Live demo:** [https://3-7-47-162.sslip.io](https://3-7-47-162.sslip.io) (AWS EC2, HTTPS, Gemini enabled, fictional sample data).
 
-1. Open the dashboard. Move the cursor over the hero: each dot is a company, and amber dots are hot leads.
+1. Open the dashboard. Hover the **Strongest signals** map: each dot is a real lead, and amber dots are hot leads. Click one to open it.
 2. Type *"family-owned businesses scoring above 80"* into **Ask AI** and press Enter.
 3. Press **Ctrl K** (⌘K on Mac) and type a company name, or a request like *"leads with a follow-up due"*.
 4. Back on the dashboard, click **Generate brief**.

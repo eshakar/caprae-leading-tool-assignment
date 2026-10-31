@@ -19,7 +19,7 @@ image works in every environment.
 ## Pages
 | Route | What it does |
 |---|---|
-| `/` | Interactive hero (lead-constellation background + Ask AI search), AI Pipeline Brief, KPIs, Today's actions (follow-ups due, upcoming, hot & untouched), score distribution, pipeline funnel, priority queue, industry breakdown |
+| `/` | Hero with Ask AI search and a live cluster map of the pipeline, AI Pipeline Brief, score tiers, Today's actions (follow-ups due, upcoming, hot & untouched), priority queue with explainable match, industry breakdown |
 | `/leads` | Search, tier chips, filters, sorting, bulk enrich/stage/export/delete, add & CSV import dialogs |
 | `/leads/[id]` | Lead workspace: follow-up scheduler, AI Outreach Copilot, explainable score, contacts with verification, signals, tech stack, notes, activity timeline |
 | `/leads/[id]/memo` | Printable target one-pager (Save as PDF) |
@@ -32,7 +32,7 @@ image works in every environment.
 
 ## UI stack
 - **shadcn/ui** (Radix, "nova" preset) for every primitive: sidebar, table, dialog, sheet, select, tabs, charts…
-- **React Bits** in `src/components/reactbits`: Aurora, BlurText, CountUp, SpotlightCard, ShinyText, GradientText, plus a custom canvas `LeadConstellation`
+- **React Bits** in `src/components/reactbits`: BlurText, CountUp, SpotlightCard, ShinyText, GradientText. The dashboard's cluster map is a custom canvas (`dashboard/signal-radar.tsx`)
 - SWR for data fetching and revalidation, Sonner toasts, next-themes for light/dark, Recharts via shadcn charts
 
 ## Checks

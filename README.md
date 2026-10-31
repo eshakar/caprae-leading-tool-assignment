@@ -29,8 +29,14 @@ deploy/aws/       Production-style AWS deploy: ECS Fargate + ALB + RDS
 
 *Captured from the [live demo](https://3-7-47-162.sslip.io). All companies are fictional sample data.*
 
-**Dashboard:** interactive "lead constellation" hero with Ask AI search, KPIs, and the AI Pipeline Brief.
-![Dashboard, light mode](docs/screenshots/dashboard-light.png)
+**Dashboard:** Ask AI search, a live cluster map of the real pipeline (hover a dot for the company), the AI
+Pipeline Brief, score tiers, today's action queues, and the priority queue with each lead's explainable match.
+![Dashboard, dark mode](docs/screenshots/dashboard-dark.png)
+
+<details><summary>Full dashboard (scroll)</summary>
+
+![Full dashboard](docs/screenshots/dashboard-full.png)
+</details>
 
 <table>
   <tr>
@@ -46,7 +52,7 @@ deploy/aws/       Production-style AWS deploy: ECS Fargate + ALB + RDS
   </tr>
   <tr>
     <td width="50%"><b>Pipeline board</b>: drag-and-drop stages with revenue roll-ups<br><img src="docs/screenshots/pipeline-board.png" alt="Pipeline board"></td>
-    <td width="50%"><b>Dark mode</b>: every screen is tuned for both themes<br><img src="docs/screenshots/dashboard-dark.png" alt="Dashboard, dark mode"></td>
+    <td width="50%"><b>Light mode</b>: every screen is tuned for both themes<br><img src="docs/screenshots/dashboard-light.png" alt="Dashboard, light mode"></td>
   </tr>
 </table>
 
@@ -128,9 +134,9 @@ The fastest way to use a lead tool is to *say what you want*.
   insights that link to the exact lead they're about, and a single "focus today". The model sees only a JSON
   snapshot of your stats, follow-ups and top leads; lead ids are checked server-side so links can't point anywhere
   invented. A rule-based brief takes over if no provider is reachable.
-- **Interactive hero.** The dashboard hero layers the Aurora glow with a dotted grid and a canvas "lead
-  constellation": every dot is a company, amber dots pulse as hot leads, and the cursor links to nearby nodes and
-  nudges them aside. It pauses off-screen and respects `prefers-reduced-motion`.
+- **Live cluster map ("Strongest signals").** A canvas map of the real pipeline in the dashboard hero. Each dot is
+  a lead, and higher scores sit closer to the centre. Hot leads pulse amber and link to their hot neighbours.
+  Hovering shows the company and score, and clicking opens it. The map respects `prefers-reduced-motion`.
 
 ### The foundation those features need
 - **Live website enrichment.** A polite async crawler reads the homepage, then discovers contact, about, team and
@@ -147,8 +153,9 @@ The fastest way to use a lead tool is to *say what you want*.
 - **Background bulk enrichment** with bounded concurrency and a live progress bar, plus a **drag-and-drop pipeline
   board** (New → Contacted → Replied → Meeting → Won/Lost) with revenue roll-ups.
 
-**Visual identity:** a "Deep Teal & Amber" theme (calm, finance-grade teal primary with warm amber highlights),
-tuned separately for light and dark mode, with semantic hot/warm/cold colours kept distinct from the brand colours.
+**Visual identity:** a "deal desk" theme, dark by default. Deep-navy surfaces carry amber for deals and cyan for AI,
+with indigo and emerald accents. Headings are Space Grotesk, body text Hanken Grotesk, and data labels JetBrains Mono.
+A matching light mode is one click away.
 
 ---
 
@@ -167,8 +174,8 @@ tuned separately for light and dark mode, with semantic hot/warm/cold colours ke
   "Why this score?" for when you want to check.
 - Dark/light theme, keyboard-accessible Radix primitives, toasts instead of blocking dialogs, skeleton loaders,
   empty states with a next step, and a responsive layout that collapses to icons and hides columns on smaller screens.
-- **React Bits** is used sparingly where it earns attention: an Aurora hero, BlurText headline, CountUp KPIs,
-  SpotlightCard metrics, a ShinyText Copilot title and the GradientText wordmark. All of it respects light/dark mode.
+- **React Bits** is used sparingly where it earns attention: a BlurText headline, CountUp queue counts,
+  SpotlightCard action queues, and ShinyText titles on the AI features. All of it respects light/dark mode.
 
 ---
 

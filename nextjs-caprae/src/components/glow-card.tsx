@@ -16,7 +16,7 @@ export function GlowCard({ className, children, ...props }: React.ComponentProps
   return (
     <SpotlightCard
       theme={theme}
-      spotlightColor={theme === "dark" ? "rgba(45, 212, 191, 0.3)" : "rgba(13, 148, 136, 0.2)"}
+      spotlightColor={theme === "dark" ? "rgba(245, 158, 11, 0.18)" : "rgba(217, 119, 6, 0.12)"}
       className={cn("rounded-xl! border p-5!", className)}
       style={{ "--spotlight-card-surface": "var(--card)", "--spotlight-card-shadow": "none" } as React.CSSProperties}
       {...props}

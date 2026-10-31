@@ -3,6 +3,8 @@
 import Link from "next/link";
 import useSWR from "swr";
 
+import { GlowCard } from "@/components/glow-card";
+import CountUp from "@/components/reactbits/CountUp";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ActionCard, Actions } from "@/lib/api";
 import { relativeDay } from "@/lib/format";
@@ -37,14 +39,14 @@ function Queue({
 }) {
   const first = items?.[0];
   return (
-    <div className="flex flex-col justify-between rounded-xl bg-card p-5 shadow-md transition-colors hover:bg-surface-high/40">
+    <GlowCard className="flex flex-col justify-between border-transparent shadow-md">
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <span className={cn("flex items-center gap-1.5 font-mono text-[11px] font-bold tracking-wider uppercase", tone)}>
             <span className={cn("size-2 rounded-full", dot, ping && "animate-ping")} />
             {label}
           </span>
-          <span className={cn("font-heading text-[2.5rem] leading-none font-bold tabular", tone)}>{items ? items.length : "–"}</span>
+          <span className={cn("font-heading text-[2.5rem] leading-none font-bold tabular", tone)}>{items ? <CountUp to={items.length} duration={0.8} /> : "–"}</span>
         </div>
         <h3 className="font-heading text-xl font-semibold">{title}</h3>
         <p className="text-xs text-muted-foreground">{hint}</p>
@@ -73,7 +75,7 @@ function Queue({
           </>
         )}
       </div>
-    </div>
+    </GlowCard>
   );
 }
 
