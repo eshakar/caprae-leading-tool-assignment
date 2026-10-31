@@ -98,7 +98,7 @@ export function OutreachCopilot({ lead, onContacted }: { lead: Lead; onContacted
       : undefined;
 
   return (
-    <Card className="overflow-hidden">
+    <Card id="copilot" className="scroll-mt-20 overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="size-4 text-primary" />

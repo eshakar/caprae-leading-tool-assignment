@@ -1,154 +1,133 @@
 "use client";
 
-import { ArrowRight, Command, Loader2, Sparkles, Upload, UserPlus } from "lucide-react";
+import { Bot, Building2, FileUp, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useTheme } from "next-themes";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 
 import { ASK_AI_EXAMPLES, useAskAI } from "@/components/ai/use-ask-ai";
 import { openCommandPalette } from "@/components/command-palette";
-import { ScoreRing } from "@/components/leads/badges";
-import Aurora from "@/components/reactbits/Aurora";
-import BlurText from "@/components/reactbits/BlurText";
-import LeadConstellation from "@/components/reactbits/LeadConstellation";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { Stats } from "@/lib/api";
+import { SignalRadar } from "@/components/dashboard/signal-radar";
+import type { LeadPage, Stats } from "@/lib/api";
 
-const subscribe = () => () => {};
-const PROVIDER_LABEL: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", xai: "Grok" };
+const PIPELINE_KEY = "/leads?page_size=200&sort=-score";
 
 export function Hero({ stats }: { stats?: Stats }) {
-  const { resolvedTheme } = useTheme();
-  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
-  const dark = mounted && resolvedTheme === "dark";
-  const { data: ai } = useSWR<{ enabled: boolean; provider: string | null }>("/ai/status");
   const { ask, pending } = useAskAI();
   const [query, setQuery] = useState("");
+  const { data: all } = useSWR<LeadPage>(PIPELINE_KEY);
+
+  async function run(q: string) {
+    setQuery(q);
+    if (await ask(q)) setQuery("");
+  }
 
   return (
-    <section className="group/hero relative overflow-hidden rounded-2xl border bg-card">
-      {/* Background layers: aurora glow, dotted grid, interactive lead constellation, legibility fade */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 opacity-60 dark:opacity-80">
-          <Aurora colorStops={["#0d9488", "#f59e0b", "#14b8a6"]} amplitude={0.9} blend={0.6} speed={0.6} />
-        </div>
-        <div className="hero-grid absolute inset-0 opacity-60" />
-        <div className="absolute inset-0">
-          <LeadConstellation
-            color={dark ? "rgba(94, 234, 212, 1)" : "rgba(13, 148, 136, 1)"}
-            hotColor={dark ? "rgba(251, 191, 36, 1)" : "rgba(217, 119, 6, 1)"}
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-card/95 via-card/70 to-card/10" />
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-card/80" />
-      </div>
+    <section className="relative w-full overflow-hidden rounded-xl bg-card p-5 shadow-xl lg:p-8">
+      <div className="pointer-events-none absolute -top-24 -right-24 size-96 rounded-full bg-amber/10 blur-[90px]" />
+      <div className="pointer-events-none absolute bottom-0 -left-20 size-64 rounded-full bg-cyan/5 blur-[80px]" />
 
-      <div className="relative grid gap-8 p-6 md:p-10 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
-        <div className="flex min-w-0 flex-col gap-4">
-          <span className="flex w-fit items-center gap-2 rounded-full border bg-background/70 px-3 py-1 text-xs font-medium backdrop-blur">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
-              <span className="relative inline-flex size-2 rounded-full bg-success" />
-            </span>
-            {ai?.enabled ? `AI Copilot online · ${PROVIDER_LABEL[ai.provider ?? ""] ?? "LLM"}` : "Built for search funds, PE operators & B2B sales teams"}
-          </span>
-          <BlurText
-            text="Spend time on the leads that will actually close."
-            className="max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl"
-            delay={60}
-            animateBy="words"
-          />
-          <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-            Every lead is enriched from its website, has its emails verified, and gets an explainable Deal Signal Score.
-            Ask for what you want in plain English and the AI finds it, then drafts the first touch.
-          </p>
-
-          <form
-            className="flex max-w-2xl items-center gap-2 rounded-xl border bg-background/80 p-1.5 shadow-sm backdrop-blur transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/15"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (await ask(query)) setQuery("");
-            }}
-          >
-            <Sparkles className="ml-2 size-4 shrink-0 text-primary" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask AI: hot HVAC companies in Texas we haven't contacted…"
-              aria-label="Ask AI to find leads"
-              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-            />
-            <Button type="submit" size="sm" disabled={pending || query.trim().length < 2}>
-              {pending ? <Loader2 className="animate-spin" /> : <ArrowRight />}
-              <span className="hidden sm:inline">{pending ? "Thinking" : "Find leads"}</span>
-            </Button>
-          </form>
+      <div className="relative z-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
+        <div className="flex flex-col gap-5 lg:col-span-7">
           <div className="flex flex-wrap items-center gap-2">
-            {ASK_AI_EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                disabled={pending}
-                onClick={() => ask(ex)}
-                className="rounded-full border bg-background/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur transition hover:border-primary/50 hover:text-foreground disabled:opacity-50"
-              >
-                {ex}
-              </button>
-            ))}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-card px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-gold">
+              <span className="inline-block size-1.5 animate-ping rounded-full bg-gold" />
+              AI sourcing engine
+            </span>
+            <span className="font-mono text-[11px] font-bold text-outline">
+              {stats ? `${stats.enriched} of ${stats.total} leads enriched from their websites` : "Loading pipeline…"}
+            </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button asChild size="sm" variant="outline" className="bg-background/70">
-              <Link href="/leads?add=1">
-                <UserPlus /> Add a company
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="bg-background/70">
-              <Link href="/leads?import=1">
-                <Upload /> Import CSV
-              </Link>
-            </Button>
+          <div className="space-y-1">
+            <h1 className="font-heading text-3xl leading-none font-bold tracking-tight md:text-[2.5rem] md:leading-[1.1]">
+              Built for search funds, PE operators <span className="text-amber-soft">&amp; B2B sales teams</span>
+            </h1>
+            <p className="pt-2 font-heading text-xl font-semibold text-gold">Spend time on the leads that will actually close.</p>
+            <p className="max-w-2xl pt-1 text-sm leading-relaxed text-muted-foreground">
+              Every lead is enriched from its website, has its emails verified, and gets an explainable Deal Signal Score.
+              Ask for what you want in plain English and the AI finds it, then drafts the first touch.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <form
+              className="group relative flex w-full items-center rounded-md bg-background shadow-inner ring-cyan/40 transition focus-within:ring-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                run(query);
+              }}
+            >
+              <Bot className="absolute left-3.5 size-[22px] text-gold" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Find leads with AI… e.g. hot HVAC companies in Texas we haven't contacted"
+                aria-label="Ask AI to find leads"
+                className="w-full bg-transparent py-3.5 pr-32 pl-12 text-sm outline-none placeholder:text-outline"
+              />
+              <button
+                type="submit"
+                disabled={pending || query.trim().length < 2}
+                className="absolute right-2 flex items-center gap-1.5 rounded bg-amber px-3 py-1.5 font-heading text-[11px] font-bold tracking-wider text-primary-foreground uppercase shadow-sm transition-colors hover:bg-gold disabled:opacity-60"
+              >
+                {pending && <Loader2 className="size-3.5 animate-spin" />}
+                {pending ? "Thinking" : "Find leads"}
+              </button>
+            </form>
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="mr-1 font-mono text-[11px] font-bold tracking-wider text-outline uppercase">Suggested:</span>
+              {ASK_AI_EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(ex)}
+                  className="rounded-full bg-surface-card px-2.5 py-1 text-left font-mono text-[11px] font-bold transition-colors hover:bg-surface-high disabled:opacity-50"
+                >
+                  &ldquo;{ex}&rdquo;
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Link
+              href="/leads?add=1"
+              className="flex items-center gap-1.5 rounded-md bg-amber px-5 py-2.5 font-heading text-sm font-semibold text-primary-foreground shadow-lg shadow-amber/20 transition-colors hover:bg-gold"
+            >
+              <Building2 className="size-5" /> Add a company
+            </Link>
+            <Link
+              href="/leads?import=1"
+              className="flex items-center gap-1.5 rounded-md bg-surface-card px-4 py-2.5 font-heading text-sm font-semibold transition-colors hover:bg-surface-high"
+            >
+              <FileUp className="size-5" /> Import CSV
+            </Link>
             <button
               type="button"
               onClick={openCommandPalette}
-              className="hidden items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground sm:flex"
+              className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-outline transition-colors hover:text-foreground"
             >
-              or press
-              <kbd className="inline-flex items-center gap-0.5 rounded border bg-background/80 px-1.5 py-0.5 font-mono text-[11px]">
-                <Command className="size-3" />K / Ctrl K
-              </kbd>
-              anywhere
+              or press <kbd className="rounded bg-surface-card px-1.5 py-0.5 text-gold">⌘K / Ctrl K</kbd> anywhere
             </button>
           </div>
         </div>
 
-        <div className="hidden rounded-xl border bg-background/70 p-4 shadow-sm backdrop-blur lg:block">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium">Strongest signals</p>
-            <span className="text-[11px] text-muted-foreground">live</span>
+        <div className="relative flex h-full min-h-[340px] w-full flex-col overflow-hidden rounded-md bg-surface-card p-3 shadow-inner lg:col-span-5">
+          <div className="z-10 flex items-center justify-between pb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-heading font-semibold">Strongest signals</span>
+              <span className="flex items-center gap-1 rounded bg-emerald/20 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-emerald uppercase">
+                <span className="size-1.5 animate-pulse rounded-full bg-emerald" /> live
+              </span>
+            </div>
+            <span className="font-mono text-[11px] font-bold text-outline">Real-time cluster map</span>
           </div>
-          <div className="space-y-1">
-            {stats
-              ? stats.top_leads.slice(0, 4).map((l) => (
-                  <Link
-                    key={l.id}
-                    href={`/leads/${l.id}`}
-                    className="flex items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-muted/70"
-                  >
-                    <ScoreRing score={l.score} tier={l.score_tier} size={34} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{l.company_name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{[l.industry, l.state].filter(Boolean).join(" · ")}</p>
-                    </div>
-                  </Link>
-                ))
-              : Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-11" />)}
-          </div>
-          <p className="mt-3 border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
-            Move your cursor over the background: each dot is a company, amber ones are hot leads.
+          <p className="z-10 pb-1.5 text-xs text-muted-foreground">
+            Hover the map: each dot is a company in your pipeline, amber ones are hot leads. Click one to open it.
           </p>
+          <SignalRadar leads={all?.items} />
         </div>
       </div>
     </section>

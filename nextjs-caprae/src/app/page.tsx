@@ -8,9 +8,7 @@ export const metadata: Metadata = { title: "Dashboard" };
 export default function Page() {
   return (
     <>
-      <TopBar>
-        <span className="font-medium">Dashboard</span>
-      </TopBar>
+      <TopBar />
       <Dashboard />
     </>
   );

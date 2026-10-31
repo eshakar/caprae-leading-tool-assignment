@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/command-palette";
@@ -8,8 +8,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const body = Hanken_Grotesk({ variable: "--font-sans", subsets: ["latin"] });
+const heading = Space_Grotesk({ variable: "--font-heading", subsets: ["latin"] });
+const mono = JetBrains_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: { default: "SaaSquatch Pro", template: "%s · SaaSquatch Pro" },
@@ -18,10 +19,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${body.variable} ${heading.variable} ${mono.variable} h-full antialiased`}>
       <body className="min-h-full">
         <Providers>
-          <SidebarProvider>
+          <SidebarProvider style={{ "--sidebar-width": "18rem" } as React.CSSProperties}>
             <AppSidebar />
             <SidebarInset className="min-w-0">{children}</SidebarInset>
           </SidebarProvider>
