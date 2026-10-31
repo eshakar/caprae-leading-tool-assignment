@@ -176,3 +176,8 @@ def test_pipeline_brief_without_provider(client):
     body = client.post("/api/ai/brief").json()
     assert body["generator"] == "rules" and body["headline"] and body["focus_today"]
     assert 1 <= len(body["insights"]) <= 4
+
+
+def test_score_distribution_counts_every_lead(client):
+    stats = client.get("/api/stats").json()
+    assert sum(b["count"] for b in stats["score_distribution"]) == stats["total"]

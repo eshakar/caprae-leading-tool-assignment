@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -456,9 +456,9 @@ def stats(db: Session) -> dict[str, Any]:
     ).all()
     enriched = db.scalar(select(func.count(Lead.id)).where(Lead.enrichment_status == "enriched")) or 0
     avg_score = db.scalar(select(func.avg(Lead.score))) or 0
-    buckets = db.execute(
-        select(func.least(Lead.score / 10, 9).label("b"), func.count()).group_by("b").order_by("b")
-    ).all()
+    # Floor in SQL so 40 and 48 share a bucket (plain division groups 4.0 and 4.8 separately).
+    bucket = func.least(cast(func.floor(Lead.score / 10), Integer), 9).label("b")
+    buckets = db.execute(select(bucket, func.count()).group_by(bucket).order_by(bucket)).all()
     distribution = {int(b) * 10: c for b, c in buckets}
     with_email = db.scalar(
         select(func.count(Lead.id)).where(func.jsonb_array_length(Lead.emails) > 0)
