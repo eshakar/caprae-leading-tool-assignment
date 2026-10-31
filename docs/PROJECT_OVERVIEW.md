@@ -187,6 +187,8 @@ verifying, scoring. Each AI feature is grounded in what the code established.
 
 ## 6. Try it in two minutes
 
+**Live demo:** [http://13.203.155.35](http://13.203.155.35) (AWS EC2, Gemini enabled, fictional sample data).
+
 1. Open the dashboard. Move the cursor over the hero: each dot is a company, and amber dots are hot leads.
 2. Type *"family-owned businesses scoring above 80"* into **Ask AI** and press Enter.
 3. Press **Ctrl K** (⌘K on Mac) and type a company name, or a request like *"leads with a follow-up due"*.

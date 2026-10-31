@@ -3,6 +3,12 @@
 An enhancement to Caprae Capital's [SaaSquatch](https://www.saasquatchleads.com/) lead-generation tool, built for the
 Caprae Full Stack Developer pre-screening challenge.
 
+**🔗 Live demo: [http://13.203.155.35](http://13.203.155.35)**. Hosted on AWS (EC2 free tier, Mumbai) with Gemini
+powering the AI features, and loaded with 30 fictional sample leads. Try **Ask AI** in the dashboard hero, press
+**Ctrl K / ⌘K** anywhere, click **Generate brief**, or open a lead and use the **AI Outreach Copilot**.
+*HTTP only. If the link is down, the demo instance has been stopped; [run it locally](#4-run-it-locally) in one
+command.*
+
 > **New here?** Read [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for what this project is for and exactly
 > how AI is used (and where it deliberately isn't).
 
